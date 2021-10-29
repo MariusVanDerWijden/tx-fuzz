@@ -53,7 +53,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	if len(code) > 128 {
 		code = code[:128]
 	}
-	switch f.Byte() {
+	switch f.Byte() % 10 {
 	case 0:
 		// Legacy contract creation
 		return types.NewContractCreation(nonce, value, gas, gasPrice, code), nil
