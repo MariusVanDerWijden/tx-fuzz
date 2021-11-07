@@ -250,6 +250,10 @@ func airdrop(value *big.Int) {
 	backend := ethclient.NewClient(client)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	var tx *types.Transaction
+	chainid, err := backend.ChainID(context.Background())
+	if err != nil {
+		panic(err)
+	}
 	for _, addr := range addrs {
 		nonce, err := backend.PendingNonceAt(context.Background(), sender)
 		if err != nil {
@@ -257,8 +261,8 @@ func airdrop(value *big.Int) {
 		}
 		to := common.HexToAddress(addr)
 		gp, _ := backend.SuggestGasPrice(context.Background())
-		tx := types.NewTransaction(nonce, to, value, 21000, gp, nil)
-		signedTx, _ := types.SignTx(tx, types.HomesteadSigner{}, sk)
+		tx2 := types.NewTransaction(nonce, to, value, 21000, gp, nil)
+		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), sk)
 		backend.SendTransaction(context.Background(), signedTx)
 		tx = signedTx
 	}

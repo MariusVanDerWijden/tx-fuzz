@@ -6,6 +6,7 @@ import (
 	crand "crypto/rand"
 	"fmt"
 	"math/big"
+	"os"
 	"sync"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
@@ -26,7 +27,18 @@ var (
 )
 
 func main() {
-	SpamTransactions(uint64(txPerAccount))
+	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
+	if len(os.Args) != 2 {
+		panic("invalid amount of args, need 2")
+	}
+	switch os.Args[1] {
+	case "airdrop":
+		airdrop(airdropValue)
+	case "spam":
+		SpamTransactions(uint64(txPerAccount))
+	default:
+		fmt.Println("unrecognized option")
+	}
 }
 
 func SpamTransactions(N uint64) {
