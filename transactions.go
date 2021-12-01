@@ -46,7 +46,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			}
 		}
 	}
-	gas := uint64(300000)
+	gas := uint64(600000)
 	to := randomAddress()
 	code := RandomCode(f)
 	value := big.NewInt(0)

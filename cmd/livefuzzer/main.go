@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -22,8 +23,8 @@ import (
 
 var (
 	address      = "http://127.0.0.1:8545"
-	txPerAccount = 100
-	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*1000)), big.NewInt(params.GWei))
+	txPerAccount = 1000
+	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*10000)), big.NewInt(params.GWei))
 )
 
 func main() {
@@ -87,7 +88,9 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, addr stri
 			nonce++
 		}
 
-		if _, err := bind.WaitMined(context.Background(), backend, signedTx); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
 			fmt.Printf("Wait mined failed: %v\n", err.Error())
 		}
 	}
