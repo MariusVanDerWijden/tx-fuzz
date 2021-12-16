@@ -29,7 +29,7 @@ func main() {
 	fmt.Printf("Nonce: %v\n", nonce)
 	gp, _ := backend.SuggestGasPrice(context.Background())
 	tx := types.NewContractCreation(nonce, common.Big1, 500000, gp, []byte{0x44, 0x44, 0x55})
-	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(big.NewInt(1337602)), sk)
+	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(big.NewInt(1337702)), sk)
 	backend.SendTransaction(context.Background(), signedTx)
 }
 

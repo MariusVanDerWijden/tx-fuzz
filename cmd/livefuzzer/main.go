@@ -26,7 +26,7 @@ import (
 var (
 	address      = "http://127.0.0.1:8545"
 	txPerAccount = 1000
-	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*10000)), big.NewInt(params.GWei))
+	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
 	corpus       [][]byte
 )
 
@@ -47,6 +47,10 @@ func main() {
 		}
 		corpus = cp
 		SpamTransactions(uint64(txPerAccount), true)
+	case "unstuck":
+		unstuckTransactions()
+	case "send":
+		send()
 	default:
 		fmt.Println("unrecognized option")
 	}
@@ -84,13 +88,13 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 	if err != nil {
 		panic(err)
 	}
-	nonce, err := backend.NonceAt(context.Background(), sender, nil)
-	if err != nil {
-		panic(err)
-	}
-	for i := uint64(0); i < N; i++ {
 
-		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce+i, nil, nil)
+	for i := uint64(0); i < N; i++ {
+		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
+		if err != nil {
+			panic(err)
+		}
+		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce, nil, nil)
 		if err != nil {
 			fmt.Print(err)
 			continue
@@ -103,14 +107,28 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		if err == nil {
 			nonce++
 		}
-		if i%10 == 9 {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-			defer cancel()
-			if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
-				fmt.Printf("Wait mined failed: %v\n", err.Error())
-			}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
+			fmt.Printf("Wait mined failed: %v\n", err.Error())
 		}
 	}
+}
+
+func unstuckTransactions() {
+	backend, _ := getRealBackend()
+	client := ethclient.NewClient(backend)
+	// Now let everyone spam baikal transactions
+	var wg sync.WaitGroup
+	wg.Add(len(keys))
+	for i, key := range keys {
+		go func(key, addr string) {
+			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
+			unstuck(sk, client, common.HexToAddress(addr), common.HexToAddress(addr), common.Big0, nil)
+			wg.Done()
+		}(key, addrs[i])
+	}
+	wg.Wait()
 }
 
 func readCorpusElements(path string) ([][]byte, error) {
@@ -127,4 +145,13 @@ func readCorpusElements(path string) ([][]byte, error) {
 		corpus = append(corpus, b)
 	}
 	return corpus, nil
+}
+
+func send() {
+	backend, _ := getRealBackend()
+	client := ethclient.NewClient(backend)
+	to := common.HexToAddress(txfuzz.ADDR)
+	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK2))
+	value := new(big.Int).Mul(big.NewInt(100000), big.NewInt(params.Ether))
+	sendTx(sk, client, to, value)
 }

@@ -35,14 +35,17 @@ func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 		panic(err)
 	}
 	fmt.Printf("Nonce: %v\n", nonce)
+	chainid, err := backend.ChainID(context.Background())
+	if err != nil {
+		panic(err)
+	}
 	gp, _ := backend.SuggestGasPrice(context.Background())
 	tx := types.NewTransaction(nonce, to, value, 500000, gp, nil)
-	signedTx, _ := types.SignTx(tx, types.HomesteadSigner{}, sk)
+	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	backend.SendTransaction(context.Background(), signedTx)
 }
 
-func unstuck(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value, gas *big.Int) {
-	sender := common.HexToAddress(txfuzz.ADDR)
+func unstuck(sk *ecdsa.PrivateKey, backend *ethclient.Client, sender, to common.Address, value, gasPrice *big.Int) {
 	blocknumber, err := backend.BlockNumber(context.Background())
 	if err != nil {
 		panic(err)
@@ -55,11 +58,11 @@ func unstuck(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address,
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("Nonce: %v\n", nonce)
-	if gas == nil {
-		gas, _ = backend.SuggestGasPrice(context.Background())
+	fmt.Printf("Acc: %v Nonce: %v\n", sender, nonce)
+	if gasPrice == nil {
+		gasPrice, _ = backend.SuggestGasPrice(context.Background())
 	}
-	tx := types.NewTransaction(nonce, to, value, 500000, gas, nil)
+	tx := types.NewTransaction(nonce, to, value, 21000, gasPrice, nil)
 	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	backend.SendTransaction(context.Background(), signedTx)
 }
