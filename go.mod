@@ -1,4 +1,4 @@
-module github.com/mariusvanderwijden/tx-fuzz
+module github.com/mieubrisse/tx-fuzz
 
 go 1.16
 

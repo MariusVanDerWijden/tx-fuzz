@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	txfuzz "github.com/mariusvanderwijden/tx-fuzz"
+	txfuzz "github.com/mieubrisse/tx-fuzz"
 )
 
 var (
