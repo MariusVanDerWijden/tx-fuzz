@@ -245,8 +245,8 @@ func createAddresses(N int) ([]string, []string) {
 	return keys, addrs
 }
 
-func airdrop(value *big.Int) {
-	client, sk := getRealBackend()
+func airdrop(rpcUrl string, value *big.Int) {
+	client, sk := getRealBackend(rpcUrl)
 	backend := ethclient.NewClient(client)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	var tx *types.Transaction

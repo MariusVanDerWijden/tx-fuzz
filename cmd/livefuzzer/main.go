@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,8 +24,11 @@ import (
 	txfuzz "github.com/mariusvanderwijden/tx-fuzz"
 )
 
+const (
+	numSpammingThreads = 10
+)
+
 var (
-	address      = "http://127.0.0.1:8545"
 	txPerAccount = 1000
 	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
 	corpus       [][]byte
@@ -32,38 +36,56 @@ var (
 
 func main() {
 	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
-	if len(os.Args) < 2 {
-		panic("invalid amount of args, need 2")
+	if len(os.Args) < 3 {
+		panic(fmt.Sprintf("Usage: %v [node_ip:rpc_port] [command]", os.Args[0]))
 	}
-	switch os.Args[1] {
+
+	rpcUrl := os.Args[1]
+
+	switch os.Args[2] {
 	case "airdrop":
-		airdrop(airdropValue)
+		panic("TODO Can't airdrop on generic networks until the faucet account is parameterized")
+		airdrop(rpcUrl, airdropValue)
 	case "spam":
-		SpamTransactions(uint64(txPerAccount), false)
+		// The private keys of the addresses that will send transactions
+		commaSeparatedPrivateKeys := os.Args[3]
+		// The addresses that the private keys correspond to
+		commaSeparatedAddresses := os.Args[4]
+		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, false)
 	case "corpus":
-		cp, err := readCorpusElements(os.Args[2])
+		// The private keys of the addresses that will send transactions
+		commaSeparatedPrivateKeys := os.Args[3]
+		// The addresses that the private keys correspond to
+		commaSeparatedAddresses := os.Args[4]
+		cp, err := readCorpusElements(os.Args[5])
 		if err != nil {
 			panic(err)
 		}
 		corpus = cp
-		SpamTransactions(uint64(txPerAccount), true)
+		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, true)
 	case "unstuck":
-		unstuckTransactions()
+		unstuckTransactions(rpcUrl)
 	case "send":
-		send()
+		send(rpcUrl)
 	default:
 		fmt.Println("unrecognized option")
 	}
 }
 
-func SpamTransactions(N uint64, fromCorpus bool) {
-	backend, _ := getRealBackend()
-	// Now let everyone spam baikal transactions
-	var wg sync.WaitGroup
-	wg.Add(len(keys))
-	for i, key := range keys {
-		go func(key, addr string) {
-			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
+func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSeparatedAddresses string, fromCorpus bool) {
+	backend, _ := getRealBackend(rpcUrl)
+
+	privateKeyStrs := strings.Split(commaSeparatedPrivateKeys, ",")
+	addressStrs := strings.Split(commaSeparatedPrivateKeys, ",")
+
+	privateKeys := []*ecdsa.PrivateKey{}
+	for _, keyStr := range privateKeyStrs {
+		key := crypto.ToECDSAUnsafe(common.FromHex(keyStr))
+		privateKeys = append(privateKeys, key)
+	}
+
+	for i := 0; i < numSpammingThreads; i++ {
+		go func() {
 			var f *filler.Filler
 			if fromCorpus {
 				elem := corpus[rand.Int31n(int32(len(corpus)))]
@@ -73,23 +95,27 @@ func SpamTransactions(N uint64, fromCorpus bool) {
 				crand.Read(rnd)
 				f = filler.NewFiller(rnd)
 			}
-			SendBaikalTransactions(backend, sk, f, addr, N)
-			wg.Done()
-		}(key, addrs[i])
+			SendBaikalTransactions(backend, privateKeys, f, addressStrs)
+		}()
 	}
-	wg.Wait()
 }
 
-func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.Filler, addr string, N uint64) {
+// Repeatedly sends transactions from a random source to a random destination
+func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *filler.Filler, addresses []string) {
 	backend := ethclient.NewClient(client)
 
-	sender := common.HexToAddress(addr)
+	// Pick a random source to send ETH from
+	idx := rand.Intn(len(keys))
+	key := keys[idx]
+	srcAddr := addresses[idx]
+
+	sender := common.HexToAddress(srcAddr)
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	for i := uint64(0); i < N; i++ {
+	for {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
 			panic(err)
@@ -115,8 +141,8 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 	}
 }
 
-func unstuckTransactions() {
-	backend, _ := getRealBackend()
+func unstuckTransactions(rpcUrl string) {
+	backend, _ := getRealBackend(rpcUrl)
 	client := ethclient.NewClient(backend)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
@@ -147,8 +173,8 @@ func readCorpusElements(path string) ([][]byte, error) {
 	return corpus, nil
 }
 
-func send() {
-	backend, _ := getRealBackend()
+func send(rpcUrl string) {
+	backend, _ := getRealBackend(rpcUrl)
 	client := ethclient.NewClient(backend)
 	to := common.HexToAddress(txfuzz.ADDR)
 	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK2))
