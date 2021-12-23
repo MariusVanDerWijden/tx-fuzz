@@ -1,4 +1,6 @@
 # TBD
+
+# 0.2.0
 ### Features
 * Added changelog
 * Add CI config to publish image to `kurtosistech/tx-fuzz`
