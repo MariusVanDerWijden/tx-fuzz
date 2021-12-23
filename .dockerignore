@@ -1,0 +1,18 @@
+.circleci
+.git
+.github
+.gitignore
+.idea
+.vscode
+
+# Ignore Vim swapfiles
+*.swp
+
+LICENSE
+*.md
+
+scripts
+Dockerfile
+.dockerignore
+
+README.md
