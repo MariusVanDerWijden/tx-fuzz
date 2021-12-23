@@ -282,7 +282,7 @@ func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSepa
 	backend, _ := getRealBackend(rpcUrl)
 
 	privateKeyStrs := strings.Split(commaSeparatedPrivateKeys, ",")
-	addressStrs := strings.Split(commaSeparatedPrivateKeys, ",")
+	addressStrs := strings.Split(commaSeparatedAddresses, ",")
 
 	privateKeys := []*ecdsa.PrivateKey{}
 	for _, keyStr := range privateKeyStrs {
@@ -290,7 +290,15 @@ func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSepa
 		privateKeys = append(privateKeys, key)
 	}
 
+	addresses := []common.Address{}
+	for _, addressStr := range addressStrs {
+		addr := common.HexToAddress(addressStr)
+		addresses = append(addresses, addr)
+	}
+
+	waitgroup := sync.WaitGroup{}
 	for i := 0; i < numSpammingThreads; i++ {
+		waitgroup.Add(1)
 		go func() {
 			var f *filler.Filler
 			if fromCorpus {
@@ -301,34 +309,35 @@ func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSepa
 				crand.Read(rnd)
 				f = filler.NewFiller(rnd)
 			}
-			SendBaikalTransactions(backend, privateKeys, f, addressStrs)
+			SendBaikalTransactions(backend, privateKeys, f, addresses)
+			waitgroup.Done()
 		}()
 	}
+	waitgroup.Wait()
 }
 
 // Repeatedly sends transactions from a random source to a random destination
-func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *filler.Filler, addresses []string) {
+func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *filler.Filler, addresses []common.Address) {
 	backend := ethclient.NewClient(client)
 
-	// Pick a random source to send ETH from
-	idx := rand.Intn(len(keys))
-	key := keys[idx]
-	srcAddr := addresses[idx]
-
-	sender := common.HexToAddress(srcAddr)
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
 		panic(err)
 	}
 
 	for {
-		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
+		// Pick a random source to send ETH from
+		idx := rand.Intn(len(keys))
+		key := keys[idx]
+		srcAddr := addresses[idx]
+
+		nonce, err := backend.NonceAt(context.Background(), srcAddr, big.NewInt(-1))
 		if err != nil {
 			panic(err)
 		}
-		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce, nil, nil)
+		tx, err := txfuzz.RandomValidTx(client, f, srcAddr, nonce, nil, nil)
 		if err != nil {
-			fmt.Print(err)
+			fmt.Printf("An error occurred sending transaction from address '%v': %v\n", srcAddr.String(), err)
 			continue
 		}
 		signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainid), key)
@@ -344,6 +353,7 @@ func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *fil
 		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
 			fmt.Printf("Wait mined failed: %v\n", err.Error())
 		}
+		cancel()
 	}
 }
 

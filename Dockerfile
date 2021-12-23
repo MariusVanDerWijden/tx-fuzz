@@ -29,4 +29,4 @@ WORKDIR /run
 # Copy the code into the container
 COPY --from=builder /build/tx-fuzz.bin .
 
-ENTRYPOINT ./tx-fuzz.bin
+ENTRYPOINT ["./tx-fuzz.bin"]
