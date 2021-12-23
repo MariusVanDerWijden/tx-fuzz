@@ -21,7 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	txfuzz "github.com/mieubrisse/tx-fuzz"
+	txfuzz "github.com/kurtosis-tech/tx-fuzz"
 )
 
 const (

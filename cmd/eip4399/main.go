@@ -11,7 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	txfuzz "github.com/mieubrisse/tx-fuzz"
+	txfuzz "github.com/kurtosis-tech/tx-fuzz"
 )
 
 var (
