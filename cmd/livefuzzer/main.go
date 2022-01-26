@@ -35,18 +35,24 @@ func main() {
 	if len(os.Args) < 2 {
 		panic("invalid amount of args, need 2")
 	}
+
+	accesslist := true
+	if len(os.Args) == 2 && os.Args[2] == "no-al" {
+		accesslist = false
+	}
+
 	switch os.Args[1] {
 	case "airdrop":
 		airdrop(airdropValue)
 	case "spam":
-		SpamTransactions(uint64(txPerAccount), false)
+		SpamTransactions(uint64(txPerAccount), false, accesslist)
 	case "corpus":
 		cp, err := readCorpusElements(os.Args[2])
 		if err != nil {
 			panic(err)
 		}
 		corpus = cp
-		SpamTransactions(uint64(txPerAccount), true)
+		SpamTransactions(uint64(txPerAccount), true, accesslist)
 	case "unstuck":
 		unstuckTransactions()
 	case "send":
@@ -56,7 +62,7 @@ func main() {
 	}
 }
 
-func SpamTransactions(N uint64, fromCorpus bool) {
+func SpamTransactions(N uint64, fromCorpus bool, accessList bool) {
 	backend, _ := getRealBackend()
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
@@ -73,14 +79,14 @@ func SpamTransactions(N uint64, fromCorpus bool) {
 				crand.Read(rnd)
 				f = filler.NewFiller(rnd)
 			}
-			SendBaikalTransactions(backend, sk, f, addr, N)
+			SendBaikalTransactions(backend, sk, f, addr, N, accessList)
 			wg.Done()
 		}(key, addrs[i])
 	}
 	wg.Wait()
 }
 
-func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.Filler, addr string, N uint64) {
+func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.Filler, addr string, N uint64, al bool) {
 	backend := ethclient.NewClient(client)
 
 	sender := common.HexToAddress(addr)
@@ -94,7 +100,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		if err != nil {
 			panic(err)
 		}
-		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce, nil, nil)
+		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce, nil, nil, al)
 		if err != nil {
 			fmt.Print(err)
 			continue
