@@ -243,12 +243,18 @@ var (
 func main() {
 	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
 	if len(os.Args) < 3 {
-		panic(fmt.Sprintf("Usage: %v [node_ip:rpc_port] [command]", os.Args[0]))
+		panic(fmt.Sprintf("Usage: %v node_ip:rpc_port command [no-al]", os.Args[0]))
 	}
 
 	rpcUrl := os.Args[1]
+	command := os.Args[2]
 
-	switch os.Args[2] {
+	accesslist := true
+	if len(os.Args) == 3 && os.Args[3] == "no-al" {
+		accesslist = false
+	}
+
+	switch command {
 	case "airdrop":
 		panic("TODO Can't airdrop on generic networks until the faucet account is parameterized")
 		airdrop(rpcUrl, airdropValue)
@@ -257,7 +263,7 @@ func main() {
 		commaSeparatedPrivateKeys := os.Args[3]
 		// The addresses that the private keys correspond to
 		commaSeparatedAddresses := os.Args[4]
-		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, false)
+		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, false, accesslist)
 	case "corpus":
 		// The private keys of the addresses that will send transactions
 		commaSeparatedPrivateKeys := os.Args[3]
@@ -268,7 +274,7 @@ func main() {
 			panic(err)
 		}
 		corpus = cp
-		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, true)
+		SpamTransactions(rpcUrl, commaSeparatedPrivateKeys, commaSeparatedAddresses, true, accesslist)
 	case "unstuck":
 		unstuckTransactions(rpcUrl)
 	case "send":
@@ -278,7 +284,7 @@ func main() {
 	}
 }
 
-func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSeparatedAddresses string, fromCorpus bool) {
+func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSeparatedAddresses string, fromCorpus bool, accessList bool) {
 	backend, _ := getRealBackend(rpcUrl)
 
 	privateKeyStrs := strings.Split(commaSeparatedPrivateKeys, ",")
@@ -309,7 +315,7 @@ func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSepa
 				crand.Read(rnd)
 				f = filler.NewFiller(rnd)
 			}
-			SendBaikalTransactions(backend, privateKeys, f, addresses)
+			SendBaikalTransactions(backend, privateKeys, f, addresses, accessList)
 			waitgroup.Done()
 		}()
 	}
@@ -317,7 +323,7 @@ func SpamTransactions(rpcUrl string, commaSeparatedPrivateKeys string, commaSepa
 }
 
 // Repeatedly sends transactions from a random source to a random destination
-func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *filler.Filler, addresses []common.Address) {
+func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *filler.Filler, addresses []common.Address, al bool) {
 	backend := ethclient.NewClient(client)
 
 	chainid, err := backend.ChainID(context.Background())
@@ -335,7 +341,7 @@ func SendBaikalTransactions(client *rpc.Client, keys []*ecdsa.PrivateKey, f *fil
 		if err != nil {
 			panic(err)
 		}
-		tx, err := txfuzz.RandomValidTx(client, f, srcAddr, nonce, nil, nil)
+		tx, err := txfuzz.RandomValidTx(client, f, srcAddr, nonce, nil, nil, al)
 		if err != nil {
 			fmt.Printf("An error occurred sending transaction from address '%v': %v\n", srcAddr.String(), err)
 			continue

@@ -28,7 +28,7 @@ func RandomTx(f *filler.Filler) {
 // It does not mean that the transaction will succeed, but that it is well-formed.
 // If gasPrice is not set, we will try to get it from the rpc
 // If chainID is not set, we will try to get it from the rpc
-func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int) (*types.Transaction, error) {
+func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
 	// Set fields if non-nil
 	if rpc != nil {
 		client := ethclient.NewClient(rpc)
@@ -53,7 +53,11 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	if len(code) > 128 {
 		code = code[:128]
 	}
-	switch f.Byte() % 10 {
+	mod := 10
+	if al {
+		mod = 6
+	}
+	switch f.Byte() % byte(mod) {
 	case 0:
 		// Legacy contract creation
 		return types.NewContractCreation(nonce, value, gas, gasPrice, code), nil
@@ -66,7 +70,22 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	case 3:
 		// AccessList transaction
 		return newALTx(nonce, &to, gas, chainID, gasPrice, value, code, make(types.AccessList, 0)), nil
+
 	case 4:
+		// 1559 contract creation
+		tip, feecap, err := getCaps(rpc)
+		if err != nil {
+			return nil, err
+		}
+		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
+	case 5:
+		// 1559 transaction
+		tip, feecap, err := getCaps(rpc)
+		if err != nil {
+			return nil, err
+		}
+		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
+	case 6:
 		// AccessList contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -74,7 +93,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return newALTx(nonce, nil, gas, chainID, gasPrice, value, code, *al), nil
-	case 5:
+	case 7:
 		// AccessList transaction with AL
 		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -82,20 +101,6 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return newALTx(nonce, &to, gas, chainID, gasPrice, value, code, *al), nil
-	case 6:
-		// 1559 contract creation
-		tip, feecap, err := getCaps(rpc)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
-	case 7:
-		// 1559 transaction
-		tip, feecap, err := getCaps(rpc)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
 	case 8:
 		// 1559 contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
