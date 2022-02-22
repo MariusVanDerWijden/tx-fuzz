@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"math/rand"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/MariusVanDerWijden/FuzzyVM/generator"
@@ -20,8 +21,11 @@ func RandomCode(f *filler.Filler) []byte {
 }
 
 // RandomTx creates a random transaction.
-func RandomTx(f *filler.Filler) {
-
+func RandomTx(f *filler.Filler) (*types.Transaction, error) {
+	nonce := uint64(rand.Int63())
+	gasPrice := big.NewInt(rand.Int63())
+	chainID := big.NewInt(rand.Int63())
+	return RandomValidTx(nil, f, common.Address{}, nonce, gasPrice, chainID, false)
 }
 
 // RandomValidTx creates a random valid transaction.
