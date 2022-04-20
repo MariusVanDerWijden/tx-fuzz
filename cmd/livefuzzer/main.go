@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	crand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -36,8 +37,18 @@ func main() {
 		panic("invalid amount of args, need 2")
 	}
 
-	accesslist := true
-	if len(os.Args) == 2 && os.Args[2] == "no-al" {
+	var (
+		accesslist = true
+		seed       *int64
+	)
+
+	if len(os.Args) > 2 {
+		a := common.LeftPadBytes(common.FromHex(os.Args[2]), 8)
+		s := int64(binary.BigEndian.Uint64(a))
+		seed = &s
+	}
+
+	if len(os.Args) > 3 && os.Args[4] == "no-al" {
 		accesslist = false
 	}
 
@@ -45,14 +56,14 @@ func main() {
 	case "airdrop":
 		airdrop(airdropValue)
 	case "spam":
-		SpamTransactions(uint64(txPerAccount), false, accesslist)
+		SpamTransactions(uint64(txPerAccount), false, accesslist, seed)
 	case "corpus":
 		cp, err := readCorpusElements(os.Args[2])
 		if err != nil {
 			panic(err)
 		}
 		corpus = cp
-		SpamTransactions(uint64(txPerAccount), true, accesslist)
+		SpamTransactions(uint64(txPerAccount), true, accesslist, seed)
 	case "unstuck":
 		unstuckTransactions()
 	case "send":
@@ -62,26 +73,38 @@ func main() {
 	}
 }
 
-func SpamTransactions(N uint64, fromCorpus bool, accessList bool) {
+func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed *int64) {
 	backend, _ := getRealBackend()
+	var src rand.Rand
+	if seed == nil {
+		fmt.Println("No seed provided, creating one")
+		rnd := make([]byte, 8)
+		crand.Read(rnd)
+		s := int64(binary.BigEndian.Uint64(rnd))
+		seed = &s
+	}
+	src = *rand.New(rand.NewSource(*seed))
+	fmt.Printf("Spamming transactions with seed: 0x%x\n", *seed)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
 	wg.Add(len(keys))
 	for i, key := range keys {
-		go func(key, addr string) {
+		// Set up the randomness
+		random := make([]byte, 10000)
+		src.Read(random)
+		var f *filler.Filler
+		if fromCorpus {
+			elem := corpus[rand.Int31n(int32(len(corpus)))]
+			f = filler.NewFiller(elem)
+		} else {
+			f = filler.NewFiller(random)
+		}
+		// Start a fuzzing thread
+		go func(key, addr string, filler *filler.Filler) {
+			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
-			var f *filler.Filler
-			if fromCorpus {
-				elem := corpus[rand.Int31n(int32(len(corpus)))]
-				f = filler.NewFiller(elem)
-			} else {
-				rnd := make([]byte, 10000)
-				crand.Read(rnd)
-				f = filler.NewFiller(rnd)
-			}
 			SendBaikalTransactions(backend, sk, f, addr, N, accessList)
-			wg.Done()
-		}(key, addrs[i])
+		}(key, addrs[i], f)
 	}
 	wg.Wait()
 }
