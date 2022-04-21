@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
@@ -236,9 +237,7 @@ func createAddresses(N int) ([]string, []string) {
 		if err != nil {
 			panic(err)
 		}
-		if !skTest.Equal(sk) {
-			panic("marshalling failed")
-		}
+		_ = skTest
 		keys = append(keys, skHex)
 		addrs = append(addrs, addr.Hex())
 	}
@@ -246,24 +245,29 @@ func createAddresses(N int) ([]string, []string) {
 }
 
 func airdrop(value *big.Int) {
-	client, sk := getRealBackend()
+	client, sk, _ := getRealBackend()
 	backend := ethclient.NewClient(client)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	var tx *types.Transaction
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
-		panic(err)
+		fmt.Printf("could not airdrop: %v\n", err)
+		return
 	}
 	for _, addr := range addrs {
 		nonce, err := backend.PendingNonceAt(context.Background(), sender)
 		if err != nil {
-			panic(err)
+			fmt.Printf("could not airdrop: %v\n", err)
+			return
 		}
 		to := common.HexToAddress(addr)
 		gp, _ := backend.SuggestGasPrice(context.Background())
 		tx2 := types.NewTransaction(nonce, to, value, 21000, gp, nil)
 		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), sk)
-		backend.SendTransaction(context.Background(), signedTx)
+		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
+			fmt.Printf("could not airdrop: %v\n", err)
+			return
+		}
 		tx = signedTx
 	}
 	// Wait for the last transaction to be mined

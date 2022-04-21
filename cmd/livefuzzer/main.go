@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -42,21 +43,34 @@ func main() {
 		seed       *int64
 	)
 
-	if len(os.Args) > 2 {
+	var offset int
+	if len(os.Args) >= 3 {
 		a := common.LeftPadBytes(common.FromHex(os.Args[2]), 8)
 		s := int64(binary.BigEndian.Uint64(a))
 		seed = &s
+		offset += 1
 	}
 
-	if len(os.Args) > 3 && os.Args[4] == "no-al" {
+	if len(os.Args) > 3+offset && os.Args[3+offset] == "no-al" {
 		accesslist = false
+		offset += 1
+	}
+
+	if len(os.Args) > 3+offset {
+		txfuzz.SK = os.Args[3+offset]
+		sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
+		txfuzz.ADDR = crypto.PubkeyToAddress(sk.PublicKey).Hex()
 	}
 
 	switch os.Args[1] {
 	case "airdrop":
 		airdrop(airdropValue)
 	case "spam":
-		SpamTransactions(uint64(txPerAccount), false, accesslist, seed)
+		for {
+			airdrop(airdropValue)
+			SpamTransactions(uint64(txPerAccount), false, accesslist, seed)
+			time.Sleep(10 * time.Second)
+		}
 	case "corpus":
 		cp, err := readCorpusElements(os.Args[2])
 		if err != nil {
@@ -74,7 +88,11 @@ func main() {
 }
 
 func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed *int64) {
-	backend, _ := getRealBackend()
+	backend, _, err := getRealBackend()
+	if err != nil {
+		log.Warn("Could not get backend", "error", err)
+		return
+	}
 	var src rand.Rand
 	if seed == nil {
 		fmt.Println("No seed provided, creating one")
@@ -115,17 +133,19 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 	sender := common.HexToAddress(addr)
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
-		panic(err)
+		log.Warn("Could not get chainid, using default")
+		chainid = big.NewInt(0x01000666)
 	}
 
 	for i := uint64(0); i < N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
-			panic(err)
+			log.Warn("Could not get nonce: %v", nonce)
+			continue
 		}
 		tx, err := txfuzz.RandomValidTx(client, f, sender, nonce, nil, nil, al)
 		if err != nil {
-			fmt.Print(err)
+			log.Warn("Could not create valid tx: %v", nonce)
 			continue
 		}
 		signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainid), key)
@@ -136,7 +156,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		if err == nil {
 			nonce++
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
 			fmt.Printf("Wait mined failed: %v\n", err.Error())
@@ -145,7 +165,11 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 }
 
 func unstuckTransactions() {
-	backend, _ := getRealBackend()
+	backend, _, err := getRealBackend()
+	if err != nil {
+		log.Warn("Could not get backend", "error", err)
+		return
+	}
 	client := ethclient.NewClient(backend)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
@@ -177,7 +201,7 @@ func readCorpusElements(path string) ([][]byte, error) {
 }
 
 func send() {
-	backend, _ := getRealBackend()
+	backend, _, _ := getRealBackend()
 	client := ethclient.NewClient(backend)
 	to := common.HexToAddress(txfuzz.ADDR)
 	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK2))
