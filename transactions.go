@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -77,14 +78,14 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 
 	case 4:
 		// 1559 contract creation
-		tip, feecap, err := getCaps(rpc)
+		tip, feecap, err := getCaps(rpc, gasPrice)
 		if err != nil {
 			return nil, err
 		}
 		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
 	case 5:
 		// 1559 transaction
-		tip, feecap, err := getCaps(rpc)
+		tip, feecap, err := getCaps(rpc, gasPrice)
 		if err != nil {
 			return nil, err
 		}
@@ -112,7 +113,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		tip, feecap, err := getCaps(rpc)
+		tip, feecap, err := getCaps(rpc, gasPrice)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +125,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		tip, feecap, err := getCaps(rpc)
+		tip, feecap, err := getCaps(rpc, gasPrice)
 		if err != nil {
 			return nil, err
 		}
@@ -160,7 +161,15 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
-func getCaps(rpc *rpc.Client) (*big.Int, *big.Int, error) {
+func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, error) {
+	if rpc == nil {
+		tip := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.GWei))
+		if defaultGasPrice.Cmp(tip) >= 0 {
+			feeCap := new(big.Int).Sub(defaultGasPrice, tip)
+			return tip, feeCap, nil
+		}
+		return big.NewInt(0), defaultGasPrice, nil
+	}
 	client := ethclient.NewClient(rpc)
 	tip, err := client.SuggestGasTipCap(context.Background())
 	if err != nil {
