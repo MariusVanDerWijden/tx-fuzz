@@ -27,6 +27,9 @@ func CreateAccessList(client *rpc.Client, tx *types.Transaction, from common.Add
 }
 
 func createAccessList(client *rpc.Client, msg ethereum.CallMsg) (*types.AccessList, error) {
+	if client == nil {
+		return &types.AccessList{}, nil
+	}
 	geth := gethclient.New(client)
 	al, _, _, err := geth.CreateAccessList(context.Background(), msg)
 	return al, err
