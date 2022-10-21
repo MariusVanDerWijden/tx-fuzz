@@ -13,6 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/holiman/uint256"
+	"github.com/protolambda/ztyp/view"
 )
 
 // RandomCode creates a random byte code from the passed filler.
@@ -58,7 +60,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	if len(code) > 128 {
 		code = code[:128]
 	}
-	mod := 10
+	mod := 11
 	if al {
 		mod = 6
 	}
@@ -130,6 +132,18 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
+	case 10:
+		// 4844 transaction with AL
+		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
+		al, err := CreateAccessList(rpc, tx, sender)
+		if err != nil {
+			return nil, err
+		}
+		tip, feecap, err := getCaps(rpc, gasPrice)
+		if err != nil {
+			return nil, err
+		}
+		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
 	}
 	return nil, errors.New("asdf")
 }
@@ -161,6 +175,39 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
+func new4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, al types.AccessList) *types.Transaction {
+	cp, ok := uint256.FromBig(feeCap)
+	if !ok {
+		panic("fee cap not big int")
+	}
+	val, ok := uint256.FromBig(value)
+	if !ok {
+		panic("fee cap not big int")
+	}
+	blobs := encodeBlobs(code)
+	commits, versionedHashes, aggProof, err := blobs.ComputeCommitmentsAndAggregatedProof()
+	if err != nil {
+		panic(err)
+	}
+	txData := types.SignedBlobTx{
+		Message: types.BlobTxMessage{
+			Nonce:               view.Uint64View(nonce),
+			GasTipCap:           view.Uint256View(*uint256.NewInt(gasLimit)),
+			GasFeeCap:           view.Uint256View(*cp),
+			Gas:                 view.Uint64View(gasLimit),
+			To:                  types.AddressOptionalSSZ{Address: (*types.AddressSSZ)(to)},
+			Value:               view.Uint256View(*val),
+			BlobVersionedHashes: versionedHashes,
+		},
+	}
+	wrapData := types.BlobTxWrapData{
+		BlobKzgs:           commits,
+		Blobs:              blobs,
+		KzgAggregatedProof: aggProof,
+	}
+	return types.NewTx(&txData, types.WithTxWrapData(&wrapData))
+}
+
 func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, error) {
 	if rpc == nil {
 		tip := new(big.Int).Mul(big.NewInt(1), big.NewInt(params.GWei))
@@ -177,4 +224,24 @@ func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, err
 	}
 	feeCap, err := client.SuggestGasPrice(context.Background())
 	return tip, feeCap, err
+}
+
+func encodeBlobs(data []byte) types.Blobs {
+	blobs := []types.Blob{{}}
+	blobIndex := 0
+	fieldIndex := -1
+	for i := 0; i < len(data); i += 31 {
+		fieldIndex++
+		if fieldIndex == params.FieldElementsPerBlob {
+			blobs = append(blobs, types.Blob{})
+			blobIndex++
+			fieldIndex = 0
+		}
+		max := i + 31
+		if max > len(data) {
+			max = len(data)
+		}
+		copy(blobs[blobIndex][fieldIndex][:], data[i:max])
+	}
+	return blobs
 }
