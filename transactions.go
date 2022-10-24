@@ -60,7 +60,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	if len(code) > 128 {
 		code = code[:128]
 	}
-	mod := 11
+	mod := 12
 	if al {
 		mod = 6
 	}
@@ -143,7 +143,22 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
+		data, err := randomBlobData()
+		if err != nil {
+			return nil, err
+		}
+		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, *al), nil
+	case 11:
+		// 4844 transaction without AL
+		tip, feecap, err := getCaps(rpc, gasPrice)
+		if err != nil {
+			return nil, err
+		}
+		data, err := randomBlobData()
+		if err != nil {
+			return nil, err
+		}
+		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
 	}
 	return nil, errors.New("asdf")
 }
@@ -175,29 +190,41 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
-func new4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, al types.AccessList) *types.Transaction {
+func new4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code, blobData []byte, al types.AccessList) *types.Transaction {
 	cp, ok := uint256.FromBig(feeCap)
 	if !ok {
 		panic("fee cap not big int")
 	}
+	tp, ok := uint256.FromBig(tip)
+	if !ok {
+		panic("tip not big int")
+	}
 	val, ok := uint256.FromBig(value)
 	if !ok {
-		panic("fee cap not big int")
+		panic("value not big int")
 	}
-	blobs := encodeBlobs(code)
+	chID, ok := uint256.FromBig(chainID)
+	if !ok {
+		panic("chainID not big int")
+	}
+	blobs := encodeBlobs(blobData)
 	commits, versionedHashes, aggProof, err := blobs.ComputeCommitmentsAndAggregatedProof()
 	if err != nil {
 		panic(err)
 	}
 	txData := types.SignedBlobTx{
 		Message: types.BlobTxMessage{
+			ChainID:             view.Uint256View(*chID),
 			Nonce:               view.Uint64View(nonce),
-			GasTipCap:           view.Uint256View(*uint256.NewInt(gasLimit)),
+			GasTipCap:           view.Uint256View(*tp),
 			GasFeeCap:           view.Uint256View(*cp),
 			Gas:                 view.Uint64View(gasLimit),
 			To:                  types.AddressOptionalSSZ{Address: (*types.AddressSSZ)(to)},
 			Value:               view.Uint256View(*val),
+			Data:                types.TxDataView(code),
+			AccessList:          types.AccessListView(al),
 			BlobVersionedHashes: versionedHashes,
+			MaxFeePerDataGas:    view.Uint256View(*cp), // Use the same fee cap as gas for now.
 		},
 	}
 	wrapData := types.BlobTxWrapData{
