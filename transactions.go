@@ -93,6 +93,17 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		}
 		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
 	case 6:
+		// 4844 transaction without AL
+		tip, feecap, err := getCaps(rpc, gasPrice)
+		if err != nil {
+			return nil, err
+		}
+		data, err := randomBlobData()
+		if err != nil {
+			return nil, err
+		}
+		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
+	case 7:
 		// AccessList contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -100,7 +111,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return newALTx(nonce, nil, gas, chainID, gasPrice, value, code, *al), nil
-	case 7:
+	case 8:
 		// AccessList transaction with AL
 		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -108,7 +119,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return newALTx(nonce, &to, gas, chainID, gasPrice, value, code, *al), nil
-	case 8:
+	case 9:
 		// 1559 contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -120,7 +131,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, *al), nil
-	case 9:
+	case 10:
 		// 1559 tx with AL
 		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -132,7 +143,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
-	case 10:
+	case 11:
 		// 4844 transaction with AL
 		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
 		al, err := CreateAccessList(rpc, tx, sender)
@@ -148,17 +159,6 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, *al), nil
-	case 11:
-		// 4844 transaction without AL
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		data, err := randomBlobData()
-		if err != nil {
-			return nil, err
-		}
-		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
 	}
 	return nil, errors.New("asdf")
 }
