@@ -9,6 +9,7 @@ RUN go mod download
 # Copy the code into the container
 COPY . .
 
+RUN go test ./...
 # Build the application
 RUN cd cmd/livefuzzer && GOOS=linux go build -o tx-fuzz.bin .
 
