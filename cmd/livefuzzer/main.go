@@ -6,7 +6,6 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -152,10 +151,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		if err != nil {
 			panic(err)
 		}
-		err = backend.SendTransaction(context.Background(), signedTx)
-		if err == nil {
-			nonce++
-		}
+		backend.SendTransaction(context.Background(), signedTx)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
@@ -185,13 +181,13 @@ func unstuckTransactions() {
 }
 
 func readCorpusElements(path string) ([][]byte, error) {
-	stats, err := ioutil.ReadDir(path)
+	stats, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
 	}
 	corpus := make([][]byte, 0, len(stats))
 	for _, file := range stats {
-		b, err := ioutil.ReadFile(fmt.Sprintf("%v/%v", path, file.Name()))
+		b, err := os.ReadFile(fmt.Sprintf("%v/%v", path, file.Name()))
 		if err != nil {
 			return nil, err
 		}
