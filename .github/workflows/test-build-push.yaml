@@ -1,12 +1,14 @@
-name: Build docker image
+name: tx-fuzz workflow
+
+
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  workflow_dispatch:
   tags:
     - '**'
-  workflow_dispatch:
 
 jobs:
   lint:
