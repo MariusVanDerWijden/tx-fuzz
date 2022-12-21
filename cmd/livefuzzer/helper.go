@@ -29,7 +29,7 @@ func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
-		fmt.Sprintf("Could not get pending nonce: %v", err)
+		fmt.Printf("Could not get pending nonce: %v", err)
 	}
 	fmt.Printf("Nonce: %v\n", nonce)
 	chainid, err := backend.ChainID(context.Background())
