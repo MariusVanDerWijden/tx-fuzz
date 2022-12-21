@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
-	"math/big"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/common"
@@ -76,17 +75,4 @@ func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
 		panic(err)
 	}
 	return cl, sk
-}
-
-func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) {
-	sender := common.HexToAddress(txfuzz.ADDR)
-	nonce, err := backend.PendingNonceAt(context.Background(), sender)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Nonce: %v\n", nonce)
-	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewTransaction(nonce, to, value, 500000, gp, nil)
-	signedTx, _ := types.SignTx(tx, types.HomesteadSigner{}, sk)
-	backend.SendTransaction(context.Background(), signedTx)
 }

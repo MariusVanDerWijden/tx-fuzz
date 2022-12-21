@@ -81,6 +81,8 @@ func main() {
 		unstuckTransactions()
 	case "send":
 		send()
+	case "create":
+		createAddresses(100)
 	default:
 		fmt.Println("unrecognized option")
 	}

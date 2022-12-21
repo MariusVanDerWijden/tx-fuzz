@@ -6,7 +6,7 @@ import (
 	"github.com/holiman/goevmlab/program"
 )
 
-func selfdestructor() []byte {
+func Selfdestructor() []byte {
 	selfdestructTo := []byte{
 		byte(vm.PUSH1),
 		0,
@@ -32,7 +32,7 @@ func selfdestructor() []byte {
 	return program.Bytecode()
 }
 
-func efByte() []byte {
+func EfByte() []byte {
 	inner := []byte{
 		0xEF,
 	}
