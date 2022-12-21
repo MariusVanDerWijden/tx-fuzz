@@ -1,3 +1,4 @@
 cmd/eip4399/eip4399
 cmd/livefuzzer/livefuzzer
 cmd/shanghai/shanghai
+.idea
