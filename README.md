@@ -17,5 +17,5 @@ Tx-fuzz allows for an optional seed parameter to get reproducible fuzz transacti
 You can optionally specify a seed parameter or a secret key to use as a faucet
 
 ```
-./livefuzzer spam <seed> [no-al] <SK> 
+./livefuzzer spam no-al <seed>  <SK> <RPC-URL>
 ```
