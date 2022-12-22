@@ -17,5 +17,9 @@ Tx-fuzz allows for an optional seed parameter to get reproducible fuzz transacti
 You can optionally specify a seed parameter or a secret key to use as a faucet
 
 ```
-./livefuzzer spam <seed> [no-al] <SK> 
+./livefuzzer spam --seed <seed> --sk <SK>
 ```
+
+You can set the RPC to use with `--rpc <RPC>`.
+
+Some nodes (besu) don't have the `eth_createAccessList` RPC call, in this case it makes sense to disable accesslist creation with `--no-al`. 
