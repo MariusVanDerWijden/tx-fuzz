@@ -61,6 +61,10 @@ func main() {
 		txfuzz.ADDR = crypto.PubkeyToAddress(sk.PublicKey).Hex()
 	}
 
+	if len(os.Args) > 4+offset {
+		address = os.Args[4+offset]
+	}
+
 	switch os.Args[1] {
 	case "airdrop":
 		airdrop(airdropValue)
