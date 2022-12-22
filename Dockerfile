@@ -1,4 +1,4 @@
-FROM golang:latest AS builder
+FROM golang:1.19.4-alpine3.17 AS builder
 
 WORKDIR /build
 # Copy and download dependencies using go mod
@@ -9,9 +9,11 @@ RUN go mod download
 # Copy the code into the container
 COPY . .
 
-RUN go test ./...
 # Build the application
-RUN cd cmd/livefuzzer && GOOS=linux go build -o tx-fuzz.bin .
+RUN cd cmd/livefuzzer && CGO_ENABLED=0 GOOS=linux go build -o tx-fuzz.bin .
 
-ENTRYPOINT ["/build/cmd/livefuzzer/tx-fuzz.bin"]
-CMD ["/build/cmd/livefuzzer/tx-fuzz.bin"]
+FROM alpine:latest
+
+COPY --from=builder /build/cmd/livefuzzer/tx-fuzz.bin /tx-fuzz.bin
+
+ENTRYPOINT ["/tx-fuzz.bin"]
