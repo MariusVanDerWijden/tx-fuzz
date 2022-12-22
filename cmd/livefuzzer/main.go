@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/urfave/cli/v2"
 )
 
 var (
@@ -29,81 +30,134 @@ var (
 	txPerAccount = 1000
 	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
 	corpus       [][]byte
+
+	seedFlag = &cli.Int64Flag{
+		Name:  "seed",
+		Usage: "Seed for the RNG, (Default = RandomSeed)",
+		Value: 0,
+	}
+
+	skFlag = &cli.StringFlag{
+		Name:  "sk",
+		Usage: "Secret key",
+		Value: "0xcdfbe6f7602f67a97602e3e9fc24cde1cdffa88acd47745c0b84c5ff55891e1b",
+	}
+
+	corpusFlag = &cli.StringFlag{
+		Name:  "corpus",
+		Usage: "Use additional Corpus",
+	}
+
+	noALFlag = &cli.BoolFlag{
+		Name:  "no-al",
+		Usage: "Disable accesslist creation",
+		Value: false,
+	}
+
+	countFlag = &cli.IntFlag{
+		Name:  "count",
+		Usage: "Count of addresses to create",
+		Value: 100,
+	}
+
+	rpcFlag = &cli.StringFlag{
+		Name:  "rpc",
+		Usage: "RPC provider",
+		Value: "http://127.0.0.1:8545",
+	}
 )
+
+var airdropCommand = &cli.Command{
+	Name:   "airdrop",
+	Usage:  "Airdrops to a list of accounts",
+	Action: runAirdrop,
+	Flags: []cli.Flag{
+		skFlag,
+		rpcFlag,
+	},
+}
+
+var spamCommand = &cli.Command{
+	Name:   "spam",
+	Usage:  "Send spam transactions",
+	Action: runSpam,
+	Flags: []cli.Flag{
+		skFlag,
+		seedFlag,
+		noALFlag,
+		corpusFlag,
+		rpcFlag,
+	},
+}
+
+var unstuckCommand = &cli.Command{
+	Name:   "unstuck",
+	Usage:  "Tries to unstuck an account",
+	Action: runUnstuck,
+	Flags: []cli.Flag{
+		skFlag,
+		rpcFlag,
+	},
+}
+var sendCommand = &cli.Command{
+	Name:   "send",
+	Usage:  "Sends a single transaction",
+	Action: runSend,
+	Flags: []cli.Flag{
+		skFlag,
+		rpcFlag,
+	},
+}
+var createCommand = &cli.Command{
+	Name:   "create",
+	Usage:  "Create ephemeral accounts",
+	Action: runCreate,
+	Flags: []cli.Flag{
+		countFlag,
+		rpcFlag,
+	},
+}
+
+func initApp() *cli.App {
+	app := cli.NewApp()
+	app.Name = "tx-fuzz"
+	app.Usage = "Fuzzer for sending spam transactions"
+	app.Commands = []*cli.Command{
+		airdropCommand,
+		spamCommand,
+		unstuckCommand,
+		sendCommand,
+		createCommand,
+	}
+	return app
+}
+
+var app = initApp()
 
 func main() {
 	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
-	if len(os.Args) < 2 {
-		panic("invalid amount of args, need 2")
-	}
-
-	var (
-		accesslist = true
-		seed       *int64
-	)
-
-	var offset int
-	if len(os.Args) >= 3 {
-		a := common.LeftPadBytes(common.FromHex(os.Args[2]), 8)
-		s := int64(binary.BigEndian.Uint64(a))
-		seed = &s
-		offset += 1
-	}
-
-	if len(os.Args) > 3+offset && os.Args[3+offset] == "no-al" {
-		accesslist = false
-		offset += 1
-	}
-
-	if len(os.Args) > 3+offset {
-		txfuzz.SK = os.Args[3+offset]
-		sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
-		txfuzz.ADDR = crypto.PubkeyToAddress(sk.PublicKey).Hex()
-	}
-
-	switch os.Args[1] {
-	case "airdrop":
-		airdrop(airdropValue)
-	case "spam":
-		for {
-			airdrop(airdropValue)
-			SpamTransactions(uint64(txPerAccount), false, accesslist, seed)
-			time.Sleep(10 * time.Second)
-		}
-	case "corpus":
-		cp, err := readCorpusElements(os.Args[2])
-		if err != nil {
-			panic(err)
-		}
-		corpus = cp
-		SpamTransactions(uint64(txPerAccount), true, accesslist, seed)
-	case "unstuck":
-		unstuckTransactions()
-	case "send":
-		send()
-	case "create":
-		createAddresses(100)
-	default:
-		fmt.Println("unrecognized option")
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 }
 
-func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed *int64) {
+func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 	backend, _, err := getRealBackend()
 	if err != nil {
 		log.Warn("Could not get backend", "error", err)
 		return
 	}
 	var src rand.Rand
-	if seed == nil {
+	if seed == 0 {
 		fmt.Println("No seed provided, creating one")
 		rnd := make([]byte, 8)
 		crand.Read(rnd)
 		s := int64(binary.BigEndian.Uint64(rnd))
-		seed = &s
+		seed = s
 	}
-	src = *rand.New(rand.NewSource(*seed))
-	fmt.Printf("Spamming transactions with seed: 0x%x\n", *seed)
+	src = *rand.New(rand.NewSource(seed))
+	fmt.Printf("Spamming transactions with seed: 0x%x\n", seed)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
 	wg.Add(len(keys))
@@ -205,4 +259,57 @@ func send() {
 	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK2))
 	value := new(big.Int).Mul(big.NewInt(100000), big.NewInt(params.Ether))
 	sendTx(sk, client, to, value)
+}
+
+func runAirdrop(c *cli.Context) error {
+	setupDefaults(c)
+	airdrop(airdropValue)
+	return nil
+}
+
+func runSpam(c *cli.Context) error {
+	setupDefaults(c)
+	noAL := c.Bool(noALFlag.Name)
+	seed := c.Int64(seedFlag.Name)
+	// Setup corpus if needed
+	if corpusFile := c.String(corpusFlag.Name); corpusFile != "" {
+		cp, err := readCorpusElements(corpusFile)
+		if err != nil {
+			panic(err)
+		}
+		corpus = cp
+	}
+
+	for {
+		airdrop(airdropValue)
+		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
+		time.Sleep(10 * time.Second)
+	}
+}
+
+func runUnstuck(c *cli.Context) error {
+	setupDefaults(c)
+	unstuckTransactions()
+	return nil
+}
+
+func runSend(c *cli.Context) error {
+	setupDefaults(c)
+	send()
+	return nil
+}
+
+func runCreate(c *cli.Context) error {
+	setupDefaults(c)
+	createAddresses(100)
+	return nil
+}
+
+func setupDefaults(c *cli.Context) {
+	if sk := c.String(skFlag.Name); sk != "" {
+		txfuzz.SK = c.String(sk)
+		sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
+		txfuzz.ADDR = crypto.PubkeyToAddress(sk.PublicKey).Hex()
+	}
+	address = c.String(rpcFlag.Name)
 }
