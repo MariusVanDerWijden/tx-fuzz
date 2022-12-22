@@ -285,7 +285,6 @@ func runSpam(c *cli.Context) error {
 		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
 		time.Sleep(10 * time.Second)
 	}
-	return nil
 }
 
 func runUnstuck(c *cli.Context) error {
