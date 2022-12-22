@@ -307,7 +307,7 @@ func runCreate(c *cli.Context) error {
 
 func setupDefaults(c *cli.Context) {
 	if sk := c.String(skFlag.Name); sk != "" {
-		txfuzz.SK = c.String(sk)
+		txfuzz.SK = sk
 		sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
 		txfuzz.ADDR = crypto.PubkeyToAddress(sk.PublicKey).Hex()
 	}
