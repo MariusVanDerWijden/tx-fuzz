@@ -40,7 +40,7 @@ var (
 
 	txCountFlag = &cli.IntFlag{
 		Name:  "txcount",
-		Usage: "Number of transactions send per account per block",
-		Value: 10,
+		Usage: "Number of transactions send per account per block, 0 = best estimate",
+		Value: 0,
 	}
 )

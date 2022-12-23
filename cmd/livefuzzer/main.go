@@ -26,8 +26,9 @@ import (
 )
 
 var (
-	address = "http://127.0.0.1:8545"
-	corpus  [][]byte
+	address    = "http://127.0.0.1:8545"
+	corpus     [][]byte
+	defaultGas = 100000
 )
 
 var airdropCommand = &cli.Command{
@@ -112,6 +113,7 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		log.Warn("Could not get backend", "error", err)
 		return
 	}
+	// Setup seed
 	var src rand.Rand
 	if seed == 0 {
 		fmt.Println("No seed provided, creating one")
@@ -121,11 +123,25 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		seed = s
 	}
 	src = *rand.New(rand.NewSource(seed))
-	fmt.Printf("Spamming transactions with seed: 0x%x\n", seed)
+	// Setup N
+	if N == 0 {
+		client := ethclient.NewClient(backend)
+		block, err := client.BlockByNumber(context.Background(), nil)
+		if err != nil {
+			panic(err)
+		}
+		txPerBlock := block.GasLimit() / uint64(defaultGas)
+		txPerAccount := txPerBlock / uint64(len(keys))
+		N = txPerAccount
+		if N == 0 {
+			N = 1
+		}
+	}
+	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", N, len(keys), seed)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
 	wg.Add(len(keys))
-	for i, key := range keys {
+	for i := range keys {
 		// Set up the randomness
 		random := make([]byte, 10000)
 		src.Read(random)
@@ -141,7 +157,7 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
 			SendBaikalTransactions(backend, sk, f, addr, N, accessList)
-		}(key, addrs[i], f)
+		}(keys[i], addrs[i], f)
 	}
 	wg.Wait()
 }
@@ -156,6 +172,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		chainid = big.NewInt(0x01000666)
 	}
 
+	var lastTx *types.Transaction
 	for i := uint64(0); i < N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
@@ -171,10 +188,17 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		if err != nil {
 			panic(err)
 		}
-		backend.SendTransaction(context.Background(), signedTx)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
+			log.Warn("Could not submit transaction: %v", err)
+			continue
+		}
+		lastTx = signedTx
+		time.Sleep(10 * time.Millisecond)
+	}
+	if lastTx != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
 		defer cancel()
-		if _, err := bind.WaitMined(ctx, backend, signedTx); err != nil {
+		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
 			fmt.Printf("Wait mined failed: %v\n", err.Error())
 		}
 	}
@@ -246,10 +270,15 @@ func runSpam(c *cli.Context) error {
 		}
 		corpus = cp
 	}
+	// Limit amount of accounts
+	keys = keys[:10]
+	addrs = addrs[:10]
 
 	for {
-		airdropValue := new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
-		airdrop(airdropValue)
+		airdropValue := new(big.Int).Mul(big.NewInt(int64((1+txPerAccount)*1000000)), big.NewInt(params.GWei))
+		if err := airdrop(airdropValue); err != nil {
+			return err
+		}
 		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
 		time.Sleep(12 * time.Second)
 	}
