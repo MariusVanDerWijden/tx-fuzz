@@ -26,45 +26,8 @@ import (
 )
 
 var (
-	address      = "http://127.0.0.1:8545"
-	txPerAccount = 1000
-	airdropValue = new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
-	corpus       [][]byte
-
-	seedFlag = &cli.Int64Flag{
-		Name:  "seed",
-		Usage: "Seed for the RNG, (Default = RandomSeed)",
-		Value: 0,
-	}
-
-	skFlag = &cli.StringFlag{
-		Name:  "sk",
-		Usage: "Secret key",
-		Value: "0xcdfbe6f7602f67a97602e3e9fc24cde1cdffa88acd47745c0b84c5ff55891e1b",
-	}
-
-	corpusFlag = &cli.StringFlag{
-		Name:  "corpus",
-		Usage: "Use additional Corpus",
-	}
-
-	noALFlag = &cli.BoolFlag{
-		Name:  "no-al",
-		Usage: "Disable accesslist creation",
-		Value: false,
-	}
-
-	countFlag = &cli.IntFlag{
-		Name:  "count",
-		Usage: "Count of addresses to create",
-		Value: 100,
-	}
-
-	rpcFlag = &cli.StringFlag{
-		Name:  "rpc",
-		Usage: "RPC provider",
-		Value: "http://127.0.0.1:8545",
-	}
+	address = "http://127.0.0.1:8545"
+	corpus  [][]byte
 )
 
 var airdropCommand = &cli.Command{
@@ -87,6 +50,7 @@ var spamCommand = &cli.Command{
 		noALFlag,
 		corpusFlag,
 		rpcFlag,
+		txCountFlag,
 	},
 }
 
@@ -263,6 +227,8 @@ func send() {
 
 func runAirdrop(c *cli.Context) error {
 	setupDefaults(c)
+	txPerAccount := 10000
+	airdropValue := new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
 	airdrop(airdropValue)
 	return nil
 }
@@ -271,6 +237,7 @@ func runSpam(c *cli.Context) error {
 	setupDefaults(c)
 	noAL := c.Bool(noALFlag.Name)
 	seed := c.Int64(seedFlag.Name)
+	txPerAccount := c.Int(txCountFlag.Name)
 	// Setup corpus if needed
 	if corpusFile := c.String(corpusFlag.Name); corpusFile != "" {
 		cp, err := readCorpusElements(corpusFile)
@@ -281,9 +248,10 @@ func runSpam(c *cli.Context) error {
 	}
 
 	for {
+		airdropValue := new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
 		airdrop(airdropValue)
 		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
-		time.Sleep(10 * time.Second)
+		time.Sleep(12 * time.Second)
 	}
 }
 
