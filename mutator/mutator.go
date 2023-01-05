@@ -39,7 +39,7 @@ func NewMutator(r *rand.Rand) *Mutator {
 }
 
 func (m *Mutator) rand(n int) int {
-	return m.r.Int()
+	return m.r.Intn(n)
 }
 
 func (m *Mutator) bool() bool {
