@@ -14,6 +14,7 @@ import (
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
+	"github.com/MariusVanDerWijden/tx-fuzz/mutator"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -114,7 +115,7 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		return
 	}
 	// Setup seed
-	var src rand.Rand
+	var src *rand.Rand
 	if seed == 0 {
 		fmt.Println("No seed provided, creating one")
 		rnd := make([]byte, 8)
@@ -122,7 +123,10 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		s := int64(binary.BigEndian.Uint64(rnd))
 		seed = s
 	}
-	src = *rand.New(rand.NewSource(seed))
+	src = rand.New(rand.NewSource(seed))
+	mut := mutator.NewMutator(src)
+	// Set up the randomness
+	random := make([]byte, 10000)
 	// Setup N
 	if N == 0 {
 		client := ethclient.NewClient(backend)
@@ -142,14 +146,14 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 	var wg sync.WaitGroup
 	wg.Add(len(keys))
 	for i := range keys {
-		// Set up the randomness
-		random := make([]byte, 10000)
-		src.Read(random)
 		var f *filler.Filler
 		if fromCorpus {
 			elem := corpus[rand.Int31n(int32(len(corpus)))]
+			mut.MutateBytes(&elem)
 			f = filler.NewFiller(elem)
 		} else {
+			// Use lower entropy randomness for filler
+			mut.MutateBytes(&random)
 			f = filler.NewFiller(random)
 		}
 		// Start a fuzzing thread
