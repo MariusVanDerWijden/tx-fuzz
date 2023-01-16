@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +22,13 @@ var (
 )
 
 func main() {
+	for {
+		runTests()
+		time.Sleep(time.Minute)
+	}
+}
+
+func runTests() {
 	// Store coinbase
 	exec([]byte{0x41, 0x41, 0x55})
 	// Call coinbase
@@ -55,15 +63,6 @@ func main() {
 		maxInitCodeSize + 2,
 		maxInitCodeSize * 2,
 	}
-	// size x JUMPDEST STOP
-	for _, size := range sizes {
-		initcode := repeatOpcode(size, 0x58)
-		exec(append(initcode, 0x00))
-	}
-	// size x STOP STOP
-	for _, size := range sizes {
-		exec(repeatOpcode(size, 0x00))
-	}
 	// PUSH4 size, PUSH0, PUSH0, CREATE
 	for _, size := range sizes {
 		initcode := pushSize(size)
@@ -73,6 +72,15 @@ func main() {
 	for _, size := range sizes {
 		initcode := pushSize(size)
 		exec(append(initcode, []byte{0x57, 0x57, 0xF5}...))
+	}
+	// size x JUMPDEST STOP
+	for _, size := range sizes {
+		initcode := repeatOpcode(size, 0x58)
+		exec(append(initcode, 0x00))
+	}
+	// size x STOP STOP
+	for _, size := range sizes {
+		exec(repeatOpcode(size, 0x00))
 	}
 }
 
@@ -90,7 +98,7 @@ func exec(data []byte) {
 	}
 	fmt.Printf("Nonce: %v\n", nonce)
 	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewContractCreation(nonce, common.Big1, 500000, gp.Mul(gp, common.Big2), data)
+	tx := types.NewContractCreation(nonce, common.Big1, 5000000, gp.Mul(gp, common.Big2), data)
 	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(chainid), sk)
 	backend.SendTransaction(context.Background(), signedTx)
 }
