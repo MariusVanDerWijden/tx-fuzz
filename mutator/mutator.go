@@ -16,11 +16,6 @@ var (
 	interesting32 = []int32{-2147483648, -100663046, -32769, 32768, 65535, 65536, 100663045, 2147483647}
 )
 
-const (
-	maxUint = uint64(^uint(0))
-	maxInt  = int64(maxUint >> 1)
-)
-
 func init() {
 	for _, v := range interesting8 {
 		interesting16 = append(interesting16, int16(v))

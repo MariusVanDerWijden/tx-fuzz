@@ -8,6 +8,18 @@ It can be used to easily access fuzzed transactions from within other programs.
 ```
 cd cmd/livefuzzer
 go build
+```
+
+Run an execution layer client such as [Geth][1] locally in a standalone bash window.
+Tx-fuzz sends transactions to port `8545` by default.
+
+```
+geth --http --http.port 8545
+```
+
+Run livefuzzer.
+
+```
 ./livefuzzer spam
 ```
 
