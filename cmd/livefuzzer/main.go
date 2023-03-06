@@ -275,8 +275,9 @@ func runSpam(c *cli.Context) error {
 		corpus = cp
 	}
 	// Limit amount of accounts
-	keys = keys[:10]
-	addrs = addrs[:10]
+	numAccounts := 30
+	keys = keys[:numAccounts]
+	addrs = addrs[:numAccounts]
 
 	for {
 		airdropValue := new(big.Int).Mul(big.NewInt(int64((1+txPerAccount)*1000000)), big.NewInt(params.GWei))
