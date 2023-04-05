@@ -160,7 +160,7 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		go func(key, addr string, filler *filler.Filler) {
 			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
-			SendBaikalTransactions(backend, sk, f, addr, N, accessList)
+			SendBaikalTransactions(backend, sk, filler, addr, N, accessList)
 		}(keys[i], addrs[i], f)
 	}
 	wg.Wait()
@@ -267,12 +267,14 @@ func runSpam(c *cli.Context) error {
 	seed := c.Int64(seedFlag.Name)
 	txPerAccount := c.Int(txCountFlag.Name)
 	// Setup corpus if needed
+	var useCorpus bool
 	if corpusFile := c.String(corpusFlag.Name); corpusFile != "" {
 		cp, err := readCorpusElements(corpusFile)
 		if err != nil {
 			panic(err)
 		}
 		corpus = cp
+		useCorpus = true
 	}
 	// Limit amount of accounts
 	keys = keys[:10]
@@ -283,7 +285,7 @@ func runSpam(c *cli.Context) error {
 		if err := airdrop(airdropValue); err != nil {
 			return err
 		}
-		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
+		SpamTransactions(uint64(txPerAccount), useCorpus, !noAL, seed)
 		time.Sleep(12 * time.Second)
 	}
 }
