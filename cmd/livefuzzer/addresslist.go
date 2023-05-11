@@ -254,6 +254,11 @@ func airdrop(value *big.Int) error {
 		fmt.Printf("could not airdrop: %v\n", err)
 		return err
 	}
+	// Print sender balance
+	bal, _ := backend.BalanceAt(context.Background(), sender, nil)
+	blockNr, _ := backend.BlockNumber(context.Background())
+	fmt.Printf("Balance of sender: %v at %v\n", bal, blockNr)
+
 	for _, addr := range addrs {
 		nonce, err := backend.PendingNonceAt(context.Background(), sender)
 		if err != nil {
