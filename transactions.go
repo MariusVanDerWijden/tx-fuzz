@@ -3,6 +3,7 @@ package txfuzz
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -102,7 +103,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
+		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
 	case 7:
 		// AccessList contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
@@ -158,7 +159,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		return new4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, *al), nil
+		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, *al), nil
 	}
 	return nil, errors.New("asdf")
 }
@@ -190,25 +191,14 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
-func new4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code, blobData []byte, al types.AccessList) *types.Transaction {
-	cp, ok := uint256.FromBig(feeCap)
-	if !ok {
-		panic("fee cap not big int")
-	}
-	tp, ok := uint256.FromBig(tip)
-	if !ok {
-		panic("tip not big int")
-	}
-	val, ok := uint256.FromBig(value)
-	if !ok {
-		panic("value not big int")
-	}
-	chID, ok := uint256.FromBig(chainID)
-	if !ok {
-		panic("chainID not big int")
-	}
+func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code, blobData []byte, al types.AccessList) *types.Transaction {
+	fmt.Println(feeCap)
+	cp, _ := uint256.FromBig(feeCap)
+	tp, _ := uint256.FromBig(tip)
+	val, _ := uint256.FromBig(value)
+	chID, _ := uint256.FromBig(chainID)
 	blobs := encodeBlobs(blobData)
-	commits, versionedHashes, aggProof, err := blobs.ComputeCommitmentsAndAggregatedProof()
+	commits, versionedHashes, aggProof, err := blobs.ComputeCommitmentsAndProofs()
 	if err != nil {
 		panic(err)
 	}
@@ -228,9 +218,9 @@ func new4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 		},
 	}
 	wrapData := types.BlobTxWrapData{
-		BlobKzgs:           commits,
-		Blobs:              blobs,
-		KzgAggregatedProof: aggProof,
+		BlobKzgs: commits,
+		Blobs:    blobs,
+		Proofs:   aggProof,
 	}
 	return types.NewTx(&txData, types.WithTxWrapData(&wrapData))
 }
@@ -268,7 +258,7 @@ func encodeBlobs(data []byte) types.Blobs {
 		if max > len(data) {
 			max = len(data)
 		}
-		copy(blobs[blobIndex][fieldIndex][:], data[i:max])
+		copy(blobs[blobIndex][fieldIndex*32:], data[i:max])
 	}
 	return blobs
 }

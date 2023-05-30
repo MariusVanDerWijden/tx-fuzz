@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	maxDataPerTx = 1 << 19 // 512Kb
+	maxDataPerTx = 1 << 17 // 128Kb
 )
 
 func randomHash() common.Hash {
