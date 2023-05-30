@@ -188,7 +188,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 			log.Warn("Could not create valid tx: %v", nonce)
 			continue
 		}
-		signedTx, err := types.SignTx(tx, types.NewLondonSigner(chainid), key)
+		signedTx, err := types.SignTx(tx, types.NewDankSigner(chainid), key)
 		if err != nil {
 			panic(err)
 		}
