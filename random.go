@@ -2,8 +2,9 @@ package txfuzz
 
 import (
 	"crypto/rand"
-	"github.com/ethereum/go-ethereum/common"
 	mathRand "math/rand"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 func randomHash() common.Hash {
