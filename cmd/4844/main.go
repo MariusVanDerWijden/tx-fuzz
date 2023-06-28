@@ -9,9 +9,11 @@ import (
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -47,9 +49,15 @@ func exec(data []byte) {
 	nonce = nonce - 2
 	tx := txfuzz.New4844Tx(nonce, nil, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big1, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
 	signedTx, _ := types.SignTx(&tx.Transaction, types.NewCancunSigner(chainid), sk)
+	tx.Transaction = *signedTx
 	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 		panic(err)
 	}
+	rlpData, err := rlp.EncodeToBytes(tx)
+	if err != nil {
+		panic(err)
+	}
+	cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData))
 }
 
 func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
