@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"math/big"
 	"math/rand"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
@@ -44,8 +45,8 @@ func exec(data []byte) {
 	tip, _ := backend.SuggestGasTipCap(context.Background())
 	blob, _ := randomBlobData()
 	nonce = nonce - 2
-	tx := txfuzz.New4844Tx(nonce, nil, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big1, data, blob, make(types.AccessList, 0))
-	signedTx, _ := types.SignTx(tx, types.NewDankSigner(chainid), sk)
+	tx := txfuzz.New4844Tx(nonce, nil, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big1, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
+	signedTx, _ := types.SignTx(&tx.Transaction, types.NewCancunSigner(chainid), sk)
 	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 		panic(err)
 	}

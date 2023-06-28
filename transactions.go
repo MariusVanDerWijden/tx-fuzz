@@ -2,8 +2,8 @@ package txfuzz
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
-	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -11,11 +11,11 @@ import (
 	"github.com/MariusVanDerWijden/FuzzyVM/generator"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/holiman/uint256"
-	"github.com/protolambda/ztyp/view"
 )
 
 // RandomCode creates a random byte code from the passed filler.
@@ -103,7 +103,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, make(types.AccessList, 0)), nil
+		return &New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, big.NewInt(1000000), data, make(types.AccessList, 0)).Transaction, nil
 	case 7:
 		// AccessList contract creation with AL
 		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
@@ -159,7 +159,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 		if err != nil {
 			return nil, err
 		}
-		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, data, *al), nil
+		return &New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, big.NewInt(1000000), data, *al).Transaction, nil
 	}
 	return nil, errors.New("asdf")
 }
@@ -191,38 +191,25 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
-func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code, blobData []byte, al types.AccessList) *types.Transaction {
-	fmt.Println(feeCap)
-	cp, _ := uint256.FromBig(feeCap)
-	tp, _ := uint256.FromBig(tip)
-	val, _ := uint256.FromBig(value)
-	chID, _ := uint256.FromBig(chainID)
-	blobs := encodeBlobs(blobData)
-	commits, versionedHashes, aggProof, err := blobs.ComputeCommitmentsAndProofs()
+func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, blobData []byte, al types.AccessList) *types.BlobTxWithBlobs {
+	blobs, commits, aggProof, versionedHashes, err := EncodeBlobs(blobData)
 	if err != nil {
 		panic(err)
 	}
-	txData := types.SignedBlobTx{
-		Message: types.BlobTxMessage{
-			ChainID:             view.Uint256View(*chID),
-			Nonce:               view.Uint64View(nonce),
-			GasTipCap:           view.Uint256View(*tp),
-			GasFeeCap:           view.Uint256View(*cp),
-			Gas:                 view.Uint64View(gasLimit),
-			To:                  types.AddressOptionalSSZ{Address: (*types.AddressSSZ)(to)},
-			Value:               view.Uint256View(*val),
-			Data:                types.TxDataView(code),
-			AccessList:          types.AccessListView(al),
-			BlobVersionedHashes: versionedHashes,
-			MaxFeePerDataGas:    view.Uint256View(*cp), // Use the same fee cap as gas for now.
-		},
-	}
-	wrapData := types.BlobTxWrapData{
-		BlobKzgs: commits,
-		Blobs:    blobs,
-		Proofs:   aggProof,
-	}
-	return types.NewTx(&txData, types.WithTxWrapData(&wrapData))
+	tx := types.NewTx(&types.BlobTx{
+		ChainID:    uint256.MustFromBig(chainID),
+		Nonce:      nonce,
+		GasTipCap:  uint256.MustFromBig(tip),
+		GasFeeCap:  uint256.MustFromBig(feeCap),
+		Gas:        gasLimit,
+		To:         *to,
+		Value:      uint256.MustFromBig(value),
+		Data:       code,
+		AccessList: al,
+		BlobFeeCap: uint256.MustFromBig(blobFeeCap),
+		BlobHashes: versionedHashes,
+	})
+	return types.NewBlobTxWithBlobs(tx, blobs, commits, aggProof)
 }
 
 func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, error) {
@@ -243,14 +230,14 @@ func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, err
 	return tip, feeCap, err
 }
 
-func encodeBlobs(data []byte) types.Blobs {
-	blobs := []types.Blob{{}}
+func encodeBlobs(data []byte) []kzg4844.Blob {
+	blobs := []kzg4844.Blob{{}}
 	blobIndex := 0
 	fieldIndex := -1
 	for i := 0; i < len(data); i += 31 {
 		fieldIndex++
-		if fieldIndex == params.FieldElementsPerBlob {
-			blobs = append(blobs, types.Blob{})
+		if fieldIndex == params.BlobTxFieldElementsPerBlob {
+			blobs = append(blobs, kzg4844.Blob{})
 			blobIndex++
 			fieldIndex = 0
 		}
@@ -261,4 +248,39 @@ func encodeBlobs(data []byte) types.Blobs {
 		copy(blobs[blobIndex][fieldIndex*32:], data[i:max])
 	}
 	return blobs
+}
+
+func EncodeBlobs(data []byte) ([]kzg4844.Blob, []kzg4844.Commitment, []kzg4844.Proof, []common.Hash, error) {
+	var (
+		blobs           = encodeBlobs(data)
+		commits         []kzg4844.Commitment
+		proofs          []kzg4844.Proof
+		versionedHashes []common.Hash
+	)
+	for _, blob := range blobs {
+		commit, err := kzg4844.BlobToCommitment(blob)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		commits = append(commits, commit)
+
+		proof, err := kzg4844.ComputeBlobProof(blob, commit)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+		proofs = append(proofs, proof)
+
+		versionedHashes = append(versionedHashes, kZGToVersionedHash(commit))
+	}
+	return blobs, commits, proofs, versionedHashes, nil
+}
+
+var blobCommitmentVersionKZG uint8 = 0x01
+
+// kZGToVersionedHash implements kzg_to_versioned_hash from EIP-4844
+func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
+	h := sha256.Sum256(kzg[:])
+	h[0] = blobCommitmentVersionKZG
+
+	return h
 }
