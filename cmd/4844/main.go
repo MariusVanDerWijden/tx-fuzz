@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	maxDataPerTx = 1 << 17 // 128Kb
+	maxDataPerBlob = 1 << 17 // 128Kb
 )
 
 var (
@@ -35,6 +35,16 @@ func main() {
 
 	// PUSH0, DATAHASH, PUSH0, DATAHASH, SSTORE
 	exec(addr, []byte{0x5f, 0x49, 0x5f, 0x49, 0x55})
+
+	var dataHashByteCode []byte
+	for i := 0; i < 10; i++ {
+		// PUSH1 i, DATAHASH, PUSH0, SSTORE
+		dataHashByteCode = append(dataHashByteCode, []byte{0x60, byte(i), 0x49, 0x5f, 0x55}...)
+	}
+	exec(addr, dataHashByteCode)
+
+	// PUSH1 0x01, NOT, DATAHASH, PUSH0, NOT, DATAHASH, SSTORE
+	exec(addr, []byte{0x60, 0x01, 0x19, 0x49, 0x5f, 0x19, 0x49, 0x55})
 }
 
 func exec(addr common.Address, data []byte) {
@@ -81,7 +91,7 @@ func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
 }
 
 func randomBlobData() ([]byte, error) {
-	size := rand.Intn(maxDataPerTx)
+	size := rand.Intn(maxDataPerBlob) * 3
 	data := make([]byte, size)
 	n, err := rand.Read(data)
 	if err != nil {
@@ -124,7 +134,7 @@ func deployProxy() (common.Address, error) {
 	tx := types.NewContractCreation(nonce, common.Big0, 500000, gp.Mul(gp, common.Big2), common.Hex2Bytes(bytecode))
 	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(chainid), sk)
 	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
-
+		return common.Address{}, err
 	}
 	return bind.WaitDeployed(context.Background(), backend, signedTx)
 }
