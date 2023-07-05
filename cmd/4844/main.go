@@ -8,6 +8,7 @@ import (
 	"math/rand"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -26,11 +27,17 @@ var (
 )
 
 func main() {
+	// deployProxy
+	addr, err := deployProxy()
+	if err != nil {
+		panic(err)
+	}
+
 	// PUSH0, DATAHASH, PUSH0, DATAHASH, SSTORE
-	exec([]byte{0x5f, 0x49, 0x5f, 0x49, 0x55})
+	exec(addr, []byte{0x5f, 0x49, 0x5f, 0x49, 0x55})
 }
 
-func exec(data []byte) {
+func exec(addr common.Address, data []byte) {
 	cl, sk := getRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
@@ -46,18 +53,17 @@ func exec(data []byte) {
 	gp, _ := backend.SuggestGasPrice(context.Background())
 	tip, _ := backend.SuggestGasTipCap(context.Background())
 	blob, _ := randomBlobData()
-	nonce = nonce - 2
-	tx := txfuzz.New4844Tx(nonce, nil, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big1, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
+	//nonce = nonce - 2
+	tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
 	signedTx, _ := types.SignTx(&tx.Transaction, types.NewCancunSigner(chainid), sk)
 	tx.Transaction = *signedTx
-	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
-		panic(err)
-	}
 	rlpData, err := rlp.EncodeToBytes(tx)
 	if err != nil {
 		panic(err)
 	}
-	cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData))
+	if err := cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
+		panic(err)
+	}
 }
 
 func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
@@ -85,4 +91,40 @@ func randomBlobData() ([]byte, error) {
 		return nil, fmt.Errorf("could not create random blob data with size %d: %v", size, err)
 	}
 	return data, nil
+}
+
+/*
+pragma solidity >=0.7.0 <0.9.0;
+contract BlobProxy {
+    fallback (bytes calldata _input) external returns (bytes memory _output) {
+        bytes memory bytecode = _input;
+        address addr;
+        assembly {
+            addr := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+    }
+}
+*/
+
+func deployProxy() (common.Address, error) {
+	bytecode := "6080604052348015600f57600080fd5b5060ae80601d6000396000f3fe6080604052348015600f57600080fd5b506000366060600083838080601f016020809104026020016040519081016040528093929190818152602001838380828437600081840152601f19601f82011690508083019250505050505050905060008151602083016000f090505050915050805190602001f3fea2646970667358221220c23b98a79e6709c832ef1c90f5a3a7583ba88f759611d74a4d775dd22a02296364736f6c63430008120033"
+	cl, sk := getRealBackend()
+	backend := ethclient.NewClient(cl)
+	sender := common.HexToAddress(txfuzz.ADDR)
+	nonce, err := backend.PendingNonceAt(context.Background(), sender)
+	if err != nil {
+		return common.Address{}, err
+	}
+	chainid, err := backend.ChainID(context.Background())
+	if err != nil {
+		return common.Address{}, err
+	}
+	fmt.Printf("Nonce: %v\n", nonce)
+	gp, _ := backend.SuggestGasPrice(context.Background())
+	tx := types.NewContractCreation(nonce, common.Big0, 500000, gp.Mul(gp, common.Big2), common.Hex2Bytes(bytecode))
+	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(chainid), sk)
+	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
+
+	}
+	return bind.WaitDeployed(context.Background(), backend, signedTx)
 }
