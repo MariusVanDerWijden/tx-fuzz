@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -68,9 +67,9 @@ func exec(addr common.Address, data []byte) {
 	blob, _ := randomBlobData()
 	//nonce = nonce - 2
 	tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
-	signedTx, _ := types.SignTx(&tx.Transaction, types.NewCancunSigner(chainid), sk)
-	tx.Transaction = *signedTx
-	rlpData, err := rlp.EncodeToBytes(tx)
+	signedTx, _ := types.SignTx(tx.Transaction, types.NewCancunSigner(chainid), sk)
+	tx.Transaction = signedTx
+	rlpData, err := tx.MarshalBinary()
 	if err != nil {
 		panic(err)
 	}

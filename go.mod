@@ -11,4 +11,4 @@ require (
 	github.com/urfave/cli/v2 v2.25.1
 )
 
-replace github.com/ethereum/go-ethereum => github.com/mariusvanderwijden/go-ethereum v1.8.22-0.20230626175218-2d586a9714d9
+replace github.com/ethereum/go-ethereum => github.com/mariusvanderwijden/go-ethereum v1.8.22-0.20230707144623-e03b5add7133
