@@ -161,8 +161,11 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		go func(key, addr string, filler *filler.Filler) {
 			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
-			SendBlobTransactions(backend, sk, f, addr, N, accessList)
-			//SendBaikalTransactions(backend, sk, f, addr, N, accessList)
+			if i < len(keys)/10 {
+				SendBlobTransactions(backend, sk, f, addr, N/10, accessList) // Send blob txs with one tenth of accounts
+			} else {
+				SendBaikalTransactions(backend, sk, f, addr, N, accessList)
+			}
 		}(keys[i], addrs[i], f)
 	}
 	wg.Wait()
