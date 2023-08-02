@@ -208,7 +208,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
-			fmt.Printf("Wait mined failed: %v\n", err.Error())
+			fmt.Printf("Wait mined failed for : %v\n", err.Error())
 		}
 	}
 }
@@ -251,10 +251,11 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 		time.Sleep(10 * time.Millisecond)
 	}
 	if lastTx != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
+		log.Info("Waiting for last tx: %v", lastTx)
+		ctx, cancel := context.WithTimeout(context.Background(), 56*time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
-			fmt.Printf("Wait mined failed: %v\n", err.Error())
+			fmt.Printf("Wait mined failed for blob transactions: %v\n", err.Error())
 		}
 	}
 }
