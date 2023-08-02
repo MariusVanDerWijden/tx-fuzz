@@ -164,7 +164,8 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 			if i < len(keys)/10 {
 				SendBlobTransactions(backend, sk, f, addr, N/10, accessList) // Send blob txs with one tenth of accounts
 			} else {
-				SendBaikalTransactions(backend, sk, f, addr, N, accessList)
+
+				// SendBaikalTransactions(backend, sk, f, addr, N, accessList)
 			}
 		}(keys[i], addrs[i], f)
 	}
@@ -208,7 +209,7 @@ func SendBaikalTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler
 		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
-			fmt.Printf("Wait mined failed for : %v\n", err.Error())
+			fmt.Printf("Wait mined failed for SendBaikalTransactions: %v\n", err.Error())
 		}
 	}
 }
@@ -222,6 +223,8 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 		log.Warn("Could not get chainid, using default")
 		chainid = big.NewInt(0x01000666)
 	}
+
+	fmt.Printf("sending blob transaction, key %v, addr %v", key, addr)
 
 	var lastTx *types.Transaction
 	for i := uint64(0); i < N; i++ {
@@ -250,8 +253,8 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 		lastTx = signedTx
 		time.Sleep(10 * time.Millisecond)
 	}
+	fmt.Printf("Waiting for last tx: %v", lastTx)
 	if lastTx != nil {
-		log.Info("Waiting for last tx: %v", lastTx)
 		ctx, cancel := context.WithTimeout(context.Background(), 56*time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
