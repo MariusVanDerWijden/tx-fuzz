@@ -251,13 +251,13 @@ func airdrop(value *big.Int) error {
 	var tx *types.Transaction
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
-		fmt.Printf("could not airdrop: %v\n", err)
+		fmt.Printf("error getting chain ID; could not airdrop: %v\n", err)
 		return err
 	}
 	for _, addr := range addrs {
 		nonce, err := backend.PendingNonceAt(context.Background(), sender)
 		if err != nil {
-			fmt.Printf("could not airdrop: %v\n", err)
+			fmt.Printf("error getting pending nonce; could not airdrop: %v\n", err)
 			return err
 		}
 		to := common.HexToAddress(addr)
@@ -265,7 +265,7 @@ func airdrop(value *big.Int) error {
 		tx2 := types.NewTransaction(nonce, to, value, 21000, gp, nil)
 		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), sk)
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
-			fmt.Printf("could not airdrop: %v\n", err)
+			fmt.Printf("error sending transaction; could not airdrop: %v\n", err)
 			return err
 		}
 		tx = signedTx
