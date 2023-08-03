@@ -223,8 +223,6 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 		chainid = big.NewInt(0x01000666)
 	}
 
-	fmt.Printf("sending blob transaction, key %v, addr %v", key, addr)
-
 	var lastTx *types.Transaction
 	for i := uint64(0); i < N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
