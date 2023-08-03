@@ -158,17 +158,15 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 			f = filler.NewFiller(random)
 		}
 		// Start a fuzzing thread
-		go func(key, addr string, filler *filler.Filler) {
+		go func(key, addr string, filler *filler.Filler, index int) {
 			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
-
-			SendBlobTransactions(backend, sk, f, addr, N/10, accessList) // Send blob txs with one tenth of accounts
-			// if i < len(keys)/10 {
-			// } else {
-
-			// SendBaikalTransactions(backend, sk, f, addr, N, accessList)
-			// }
-		}(keys[i], addrs[i], f)
+			if index < len(keys)/10 {
+				SendBlobTransactions(backend, sk, f, addr, N/10, accessList) // Send blob txs with one tenth of accounts
+			} else {
+				SendBaikalTransactions(backend, sk, f, addr, N, accessList)
+			}
+		}(keys[i], addrs[i], f, i)
 	}
 	wg.Wait()
 }
@@ -254,9 +252,9 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 		lastTx = signedTx
 		time.Sleep(10 * time.Millisecond)
 	}
-	fmt.Printf("Waiting for last tx: %v", lastTx)
+
 	if lastTx != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 56*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
 			fmt.Printf("Wait mined failed for blob transactions: %v\n", err.Error())
