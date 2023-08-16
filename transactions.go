@@ -134,7 +134,6 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 			return nil, err
 		}
 		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
-
 	}
 	return nil, errors.New("asdf")
 }
