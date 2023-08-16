@@ -2,9 +2,14 @@ package txfuzz
 
 import (
 	"crypto/rand"
+	"fmt"
 	mathRand "math/rand"
 
 	"github.com/ethereum/go-ethereum/common"
+)
+
+const (
+	maxDataPerTx = 1 << 17 // 128Kb
 )
 
 func randomHash() common.Hash {
@@ -31,4 +36,17 @@ func randomAddress() common.Address {
 		return common.HexToAddress(ADDR)
 	}
 	return common.Address{}
+}
+
+func randomBlobData() ([]byte, error) {
+	size := mathRand.Intn(maxDataPerTx)
+	data := make([]byte, size)
+	n, err := rand.Read(data)
+	if err != nil {
+		return nil, err
+	}
+	if n != size {
+		return nil, fmt.Errorf("could not create random blob data with size %d: %v", size, err)
+	}
+	return data, nil
 }
