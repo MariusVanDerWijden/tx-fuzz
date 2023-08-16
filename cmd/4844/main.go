@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
 	"fmt"
 	"math/big"
-	"math/rand"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -93,7 +93,11 @@ func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
 }
 
 func randomBlobData() ([]byte, error) {
-	size := rand.Intn(maxDataPerBlob) * 3
+	val, err := rand.Int(rand.Reader, big.NewInt(maxDataPerBlob))
+	if err != nil {
+		return nil, err
+	}
+	size := int(val.Int64() * 3)
 	data := make([]byte, size)
 	n, err := rand.Read(data)
 	if err != nil {
