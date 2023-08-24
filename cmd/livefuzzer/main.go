@@ -54,6 +54,7 @@ var spamCommand = &cli.Command{
 		corpusFlag,
 		rpcFlag,
 		txCountFlag,
+		cancunTimestampFlag,
 	},
 }
 
@@ -109,7 +110,7 @@ func main() {
 	}
 }
 
-func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
+func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64, cancunTs int64) {
 	backend, _, err := getRealBackend()
 	if err != nil {
 		log.Warn("Could not get backend", "error", err)
@@ -128,20 +129,47 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 	mut := mutator.NewMutator(src)
 	// Set up the randomness
 	random := make([]byte, 10000)
+
+	// Reusable closures to only get information if needed
+	var (
+		latestBlock *types.Block
+		client      *ethclient.Client
+	)
+	getLatestBlock := func() *types.Block {
+		if latestBlock == nil {
+			var err error
+			if client == nil {
+				client = ethclient.NewClient(backend)
+			}
+			latestBlock, err = client.BlockByNumber(context.Background(), nil)
+			if err != nil || latestBlock == nil {
+				panic(err)
+			}
+		}
+		return latestBlock
+	}
+	checkForkTimestamp := func(forkTimestamp int64) bool {
+		if forkTimestamp == -1 {
+			return false
+		}
+		if forkTimestamp == 0 {
+			return true
+		}
+		return getLatestBlock().Time() >= uint64(forkTimestamp)
+	}
+
 	// Setup N
 	if N == 0 {
-		client := ethclient.NewClient(backend)
-		block, err := client.BlockByNumber(context.Background(), nil)
-		if err != nil {
-			panic(err)
-		}
-		txPerBlock := block.GasLimit() / uint64(defaultGas)
+		txPerBlock := getLatestBlock().GasLimit() / uint64(defaultGas)
 		txPerAccount := txPerBlock / uint64(len(keys))
 		N = txPerAccount
 		if N == 0 {
 			N = 1
 		}
 	}
+	// Check Forks
+	cancunEnabled := checkForkTimestamp(cancunTs)
+
 	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", N, len(keys), seed)
 	// Now let everyone spam baikal transactions
 	var wg sync.WaitGroup
@@ -161,7 +189,7 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64) {
 		go func(key, addr string, filler *filler.Filler, index int) {
 			defer wg.Done()
 			sk := crypto.ToECDSAUnsafe(common.FromHex(key))
-			if index < len(keys)/10 {
+			if cancunEnabled && index < len(keys)/10 {
 				SendBlobTransactions(backend, sk, f, addr, N/10, accessList) // Send blob txs with one tenth of accounts
 			} else {
 				SendBaikalTransactions(backend, sk, f, addr, N, accessList)
@@ -317,6 +345,7 @@ func runSpam(c *cli.Context) error {
 	setupDefaults(c)
 	noAL := c.Bool(noALFlag.Name)
 	seed := c.Int64(seedFlag.Name)
+	cancunTs := c.Int64(cancunTimestampFlag.Name)
 	txPerAccount := c.Int(txCountFlag.Name)
 	// Setup corpus if needed
 	if corpusFile := c.String(corpusFlag.Name); corpusFile != "" {
@@ -335,7 +364,7 @@ func runSpam(c *cli.Context) error {
 		if err := airdrop(airdropValue); err != nil {
 			return err
 		}
-		SpamTransactions(uint64(txPerAccount), false, !noAL, seed)
+		SpamTransactions(uint64(txPerAccount), false, !noAL, seed, cancunTs)
 		time.Sleep(12 * time.Second)
 	}
 }
