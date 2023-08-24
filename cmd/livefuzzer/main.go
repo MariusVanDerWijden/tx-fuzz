@@ -132,21 +132,21 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64, ca
 
 	// Reusable closures to only get information if needed
 	var (
-		latestBlock *types.Block
-		client      *ethclient.Client
+		latestHeader *types.Header
+		client       *ethclient.Client
 	)
-	getLatestBlock := func() *types.Block {
-		if latestBlock == nil {
+	getLatestHeader := func() *types.Header {
+		if latestHeader == nil {
 			var err error
 			if client == nil {
 				client = ethclient.NewClient(backend)
 			}
-			latestBlock, err = client.BlockByNumber(context.Background(), nil)
-			if err != nil || latestBlock == nil {
+			latestHeader, err = client.HeaderByNumber(context.Background(), nil)
+			if err != nil || latestHeader == nil {
 				panic(err)
 			}
 		}
-		return latestBlock
+		return latestHeader
 	}
 	checkForkTimestamp := func(forkTimestamp int64) bool {
 		if forkTimestamp == -1 {
@@ -155,12 +155,12 @@ func SpamTransactions(N uint64, fromCorpus bool, accessList bool, seed int64, ca
 		if forkTimestamp == 0 {
 			return true
 		}
-		return getLatestBlock().Time() >= uint64(forkTimestamp)
+		return getLatestHeader().Time >= uint64(forkTimestamp)
 	}
 
 	// Setup N
 	if N == 0 {
-		txPerBlock := getLatestBlock().GasLimit() / uint64(defaultGas)
+		txPerBlock := getLatestHeader().GasLimit / uint64(defaultGas)
 		txPerAccount := txPerBlock / uint64(len(keys))
 		N = txPerAccount
 		if N == 0 {
