@@ -43,10 +43,4 @@ var (
 		Usage: "Number of transactions send per account per block, 0 = best estimate",
 		Value: 0,
 	}
-
-	cancunTimestampFlag = &cli.Int64Flag{
-		Name:  "cancun-timestamp",
-		Usage: "Timestamp of the Cancun hardfork, to enable type-3 transactions (disable: -1)",
-		Value: -1,
-	}
 )
