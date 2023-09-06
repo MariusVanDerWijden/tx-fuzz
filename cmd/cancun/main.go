@@ -74,6 +74,19 @@ func main() {
 	for i := 0; i < 15; i++ {
 		exec(addr, Uint64ToHash(uint64(t)-uint64(i)).Bytes())
 	}
+
+	// short or long calls
+	for i := 0; i < 64; i++ {
+		arr := make([]byte, i)
+		exec(addr, arr)
+	}
+
+	// random calls
+	for i := 0; i < 10; i++ {
+		arr := make([]byte, 32)
+		rand.Read(arr)
+		exec(addr, arr)
+	}
 }
 
 func exec(addr common.Address, data []byte) {
