@@ -92,6 +92,7 @@ func SendBlobTransactions(client *rpc.Client, key *ecdsa.PrivateKey, f *filler.F
 			if strings.Contains(err.Error(), "account limit exceeded") {
 				// Back off for a bit if we send a lot of transactions at once
 				time.Sleep(1 * time.Minute)
+				continue
 			} else {
 				panic(err)
 			}
