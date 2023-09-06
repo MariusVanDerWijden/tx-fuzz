@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/big"
+	"time"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -32,6 +34,8 @@ func main() {
 		panic(err)
 	}
 
+	// 4844 Tests
+
 	// PUSH0, DATAHASH, PUSH0, DATAHASH, SSTORE
 	exec(addr, []byte{0x5f, 0x49, 0x5f, 0x49, 0x55})
 
@@ -47,6 +51,22 @@ func main() {
 
 	// PUSH1 0x255, PUSH1 0x01, SHL, DATAHASH, PUSH0, SSTORE
 	exec(addr, []byte{0x60, 0xff, 0x1b, 0x49, 0x5f, 0x55})
+
+	// 4788 tests
+
+	// Call addr
+	contractAddr4788 := common.HexToAddress("0x01234") // TODO: update addr
+	exec(contractAddr4788, []byte{0})
+
+	t := time.Now().Unix()
+	for i := 0; i < 15; i++ {
+		var b []byte
+		binary.BigEndian.PutUint64(b, uint64(t-int64(i)))
+		exec(contractAddr4788, b)
+	}
+
+	// Call & SSTORE
+
 }
 
 func exec(addr common.Address, data []byte) {
