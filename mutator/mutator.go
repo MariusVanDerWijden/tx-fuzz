@@ -34,6 +34,9 @@ func NewMutator(r *rand.Rand) *Mutator {
 }
 
 func (m *Mutator) rand(n int) int {
+	if n == 0 {
+		return 0
+	}
 	return m.r.Intn(n)
 }
 
