@@ -28,11 +28,11 @@ var (
 )
 
 func main() {
+	test4788()
+	test1153()
+	test7516()
+	test5656()
 	test4844()
-	//test4788()
-	//test1153()
-	//test7516()
-	//test5656()
 }
 
 func test7516() {
