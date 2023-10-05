@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"math/big"
@@ -15,7 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -32,6 +35,7 @@ func main() {
 	test1153()
 	test7516()
 	test5656()
+	test4844_precompile()
 	test4844()
 }
 
@@ -197,10 +201,110 @@ func test4844() {
 	exec(addr, []byte{0x60, 0x01, 0x19, 0x49, 0x5f, 0x19, 0x49, 0x55}, true)
 
 	// PUSH1 0x255, PUSH1 0x01, SHL, DATAHASH, PUSH0, SSTORE
-	exec(addr, []byte{0x60, 0xff, 0x1b, 0x49, 0x5f, 0x55}, true)
+	tx := exec(addr, []byte{0x60, 0xff, 0x1b, 0x49, 0x5f, 0x55}, true)
+
+	wait(tx)
 }
 
-func exec(addr common.Address, data []byte, blobs bool) {
+func test4844_precompile() {
+	addr, err := deployBlobCaller()
+	if err != nil {
+		panic(err)
+	}
+
+	// Test precompile without blobs
+	staticTestInput := common.FromHex("01d18459b334ffe8e2226eef1db874fda6db2bdd9357268b39220af2d59464fb564c0a11a0f704f4fc3e8acfe0f8245f0ad1347b378fbf96e206da11a5d3630624d25032e67a7e6a4910df5834b8fe70e6bcfeeac0352434196bdf4b2485d5a1978a0d595c823c05947b1156175e72634a377808384256e9921ebf72181890be2d6b58d4a73a880541d1656875654806942307f266e636553e94006d11423f2688945ff3bdf515859eba1005c1a7708d620a94d91a1c0c285f9584e75ec2f82a")
+	exec(addr, staticTestInput, false)
+
+	invalidInput := make([]byte, len(staticTestInput))
+	exec(addr, invalidInput, false)
+
+	co, cl, pr, po, err := createPrecompileRandParams()
+	if err != nil {
+		panic(err)
+	}
+	validRandomInput := precompileParamsToBytes(co, cl, pr, po)
+	tx := exec(addr, validRandomInput, false)
+
+	wait(tx)
+
+	// Test precompile with blobs
+	exec(addr, staticTestInput, true)
+	exec(addr, invalidInput, true)
+	tx = exec(addr, validRandomInput, true)
+
+	wait(tx)
+
+	// Full block of verification
+	for i := 0; i < 30_000_000/100_000; i++ {
+		exec(addr, validRandomInput, false)
+	}
+}
+
+func wait(tx *types.Transaction) {
+	client, _ := getRealBackend()
+	backend := ethclient.NewClient(client)
+	bind.WaitMined(context.Background(), backend, tx)
+}
+
+func precompileParamsToBytes(commitment kzg4844.Commitment, claim kzg4844.Claim, proof kzg4844.Proof, point kzg4844.Point) []byte {
+	bytes := make([]byte, 192)
+	versionedHash := kZGToVersionedHash(commitment)
+	copy(bytes[0:32], versionedHash[:])
+	copy(bytes[32:64], point[:])
+	copy(bytes[64:96], claim[:])
+	copy(bytes[96:144], commitment[:])
+	copy(bytes[144:192], proof[:])
+	return bytes
+}
+
+func createPrecompileRandParams() (kzg4844.Commitment, kzg4844.Claim, kzg4844.Proof, kzg4844.Point, error) {
+	random := make([]byte, 131072)
+	rand.Read(random[:])
+	blob := encodeBlobs(random)[0]
+	commitment, err := kzg4844.BlobToCommitment(blob)
+	if err != nil {
+		return kzg4844.Commitment{}, kzg4844.Claim{}, kzg4844.Proof{}, kzg4844.Point{}, err
+	}
+	var point kzg4844.Point
+	rand.Read(point[:])
+	point[0] = 0 // point needs to be < modulus
+	proof, claim, err := kzg4844.ComputeProof(blob, point)
+	if err != nil {
+		return kzg4844.Commitment{}, kzg4844.Claim{}, kzg4844.Proof{}, kzg4844.Point{}, err
+	}
+	return commitment, claim, proof, point, nil
+}
+
+func encodeBlobs(data []byte) []kzg4844.Blob {
+	blobs := []kzg4844.Blob{{}}
+	blobIndex := 0
+	fieldIndex := -1
+	for i := 0; i < len(data); i += 31 {
+		fieldIndex++
+		if fieldIndex == params.BlobTxFieldElementsPerBlob {
+			blobs = append(blobs, kzg4844.Blob{})
+			blobIndex++
+			fieldIndex = 0
+		}
+		max := i + 31
+		if max > len(data) {
+			max = len(data)
+		}
+		copy(blobs[blobIndex][fieldIndex*32+1:], data[i:max])
+	}
+	return blobs
+}
+
+// kZGToVersionedHash implements kzg_to_versioned_hash from EIP-4844
+func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
+	h := sha256.Sum256(kzg[:])
+	h[0] = 0x01
+
+	return h
+}
+
+func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 	cl, sk := getRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
@@ -223,19 +327,21 @@ func exec(addr common.Address, data []byte, blobs bool) {
 		//panic(err)
 	}
 	var rlpData []byte
+	var _tx *types.Transaction
 	if blobs {
 		blob, err := randomBlobData()
 		if err != nil {
 			panic(err)
 		}
 		//nonce = nonce - 2
-		tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1000000), blob, make(types.AccessList, 0))
+		tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), blob, make(types.AccessList, 0))
 		signedTx, _ := types.SignTx(tx.Transaction, types.NewCancunSigner(chainid), sk)
 		tx.Transaction = signedTx
 		rlpData, err = tx.MarshalBinary()
 		if err != nil {
 			panic(err)
 		}
+		_tx = signedTx
 	} else {
 		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: tip, GasFeeCap: gp, Gas: 500000, To: &addr, Data: data})
 		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
@@ -243,11 +349,13 @@ func exec(addr common.Address, data []byte, blobs bool) {
 		if err != nil {
 			panic(err)
 		}
+		_tx = signedTx
 	}
 
 	if err := cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
 		panic(err)
 	}
+	return _tx
 }
 
 func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
@@ -296,6 +404,28 @@ contract BlobProxy {
 
 func deployBlobProxy() (common.Address, error) {
 	bytecode := "6080604052348015600f57600080fd5b5060ae80601d6000396000f3fe6080604052348015600f57600080fd5b506000366060600083838080601f016020809104026020016040519081016040528093929190818152602001838380828437600081840152601f19601f82011690508083019250505050505050905060008151602083016000f090505050915050805190602001f3fea2646970667358221220c23b98a79e6709c832ef1c90f5a3a7583ba88f759611d74a4d775dd22a02296364736f6c63430008120033"
+	return deploy(bytecode)
+}
+
+/*
+pragma solidity >=0.7.0 <0.9.0;
+
+	contract BlobCaller {
+	    bool _ok;
+	    bytes out;
+
+	    fallback (bytes calldata _input) external returns (bytes memory _output) {
+	        address precompile = address(0x0A);
+	        (bool ok, bytes memory output) = precompile.call{gas: 50000}(_input);
+	        _output = output;
+	        // Store return values to trigger sstore
+	        _ok = ok;
+	        out = output;
+	    }
+	}
+*/
+func deployBlobCaller() (common.Address, error) {
+	bytecode := "608060405234801561001057600080fd5b5061047b806100206000396000f3fe608060405234801561001057600080fd5b5060003660606000600a90506000808273ffffffffffffffffffffffffffffffffffffffff1661c350878760405161004992919061010a565b60006040518083038160008787f1925050503d8060008114610087576040519150601f19603f3d011682016040523d82523d6000602084013e61008c565b606091505b5091509150809350816000806101000a81548160ff02191690831515021790555080600190816100bc9190610373565b50505050915050805190602001f35b600081905092915050565b82818337600083830152505050565b60006100f183856100cb565b93506100fe8385846100d6565b82840190509392505050565b60006101178284866100e5565b91508190509392505050565b600081519050919050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602260045260246000fd5b600060028204905060018216806101a457607f821691505b6020821081036101b7576101b661015d565b5b50919050565b60008190508160005260206000209050919050565b60006020601f8301049050919050565b600082821b905092915050565b60006008830261021f7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff826101e2565b61022986836101e2565b95508019841693508086168417925050509392505050565b6000819050919050565b6000819050919050565b600061027061026b61026684610241565b61024b565b610241565b9050919050565b6000819050919050565b61028a83610255565b61029e61029682610277565b8484546101ef565b825550505050565b600090565b6102b36102a6565b6102be818484610281565b505050565b5b818110156102e2576102d76000826102ab565b6001810190506102c4565b5050565b601f821115610327576102f8816101bd565b610301846101d2565b81016020851015610310578190505b61032461031c856101d2565b8301826102c3565b50505b505050565b600082821c905092915050565b600061034a6000198460080261032c565b1980831691505092915050565b60006103638383610339565b9150826002028217905092915050565b61037c82610123565b67ffffffffffffffff8111156103955761039461012e565b5b61039f825461018c565b6103aa8282856102e6565b600060209050601f8311600181146103dd57600084156103cb578287015190505b6103d58582610357565b86555061043d565b601f1984166103eb866101bd565b60005b82811015610413578489015182556001820191506020850194506020810190506103ee565b86831015610430578489015161042c601f891682610339565b8355505b6001600288020188555050505b50505050505056fea264697066735822122089d7332a134ee7e7d76876ef5f4e74d939f9d9d9f3344e6afb518c96fff0b63164736f6c63430008120033"
 	return deploy(bytecode)
 }
 
