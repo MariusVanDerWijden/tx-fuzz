@@ -185,6 +185,9 @@ func spam(c *cli.Context, basic bool) error {
 
 	for {
 		airdropValue := new(big.Int).Mul(big.NewInt(int64((1+txPerAccount)*1000000)), big.NewInt(params.GWei))
+		if !basic {
+			airdropValue.Mul(airdropValue, big.NewInt(100)) // Blob txs are more expensive
+		}
 		if err := airdrop(airdropValue); err != nil {
 			return err
 		}
