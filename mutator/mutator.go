@@ -64,6 +64,10 @@ func (m *Mutator) chooseLen(n int) int {
 	}
 }
 
+func (m *Mutator) FillBytes(ptr *[]byte) {
+	m.r.Read(*ptr)
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a

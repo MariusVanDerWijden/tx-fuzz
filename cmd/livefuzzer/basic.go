@@ -60,8 +60,9 @@ func SpamBasicTransactions(N uint64, fromCorpus bool, accessList bool, seed int6
 	}
 
 	// Set up the randomness
-	random := make([]byte, 10000)
 	seed, mut, N := setup(backend, seed, N)
+	random := make([]byte, 10000)
+	mut.FillBytes(&random)
 
 	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", N, len(keys), seed)
 	// Now let everyone spam baikal transactions
