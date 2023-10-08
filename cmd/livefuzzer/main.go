@@ -15,10 +15,6 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-var (
-	defaultGas = 100000
-)
-
 var airdropCommand = &cli.Command{
 	Name:   "airdrop",
 	Usage:  "Airdrops to a list of accounts",
