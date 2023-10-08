@@ -27,8 +27,8 @@ var (
 	}
 
 	countFlag = &cli.IntFlag{
-		Name:  "count",
-		Usage: "Count of addresses to create",
+		Name:  "accounts",
+		Usage: "Count of accounts to send transactions from",
 		Value: 100,
 	}
 
@@ -42,5 +42,22 @@ var (
 		Name:  "txcount",
 		Usage: "Number of transactions send per account per block, 0 = best estimate",
 		Value: 0,
+	}
+
+	gasLimitFlag = &cli.IntFlag{
+		Name:  "gaslimit",
+		Usage: "Gas limit used for transactions",
+		Value: 100_000,
+	}
+
+	spamFlags = []cli.Flag{
+		skFlag,
+		seedFlag,
+		noALFlag,
+		corpusFlag,
+		rpcFlag,
+		txCountFlag,
+		countFlag,
+		gasLimitFlag,
 	}
 )
