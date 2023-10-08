@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -14,7 +13,7 @@ import (
 )
 
 var (
-	keys = []string{
+	staticKeys = []string{
 		"0xaf5ead4413ff4b78bc94191a2926ae9ccbec86ce099d65aaf469e9eb1a0fa87f",
 		"0xe63135ee5310c0b34c551e4683ad926dce90062b15e43275f9189b0f29bc784c",
 		"0xc216a7b5048e6ea2437b20bc9c7f9a57cc8aefd5aaf6a991c4db407218ed9e77",
@@ -244,10 +243,9 @@ func createAddresses(N int) ([]string, []string) {
 	return keys, addrs
 }
 
-func airdrop(value *big.Int) error {
-	client, sk, _ := getRealBackend()
-	backend := ethclient.NewClient(client)
-	sender := common.HexToAddress(txfuzz.ADDR)
+func airdrop(config *Config, value *big.Int) error {
+	backend := ethclient.NewClient(config.backend)
+	sender := crypto.PubkeyToAddress(config.faucet.PublicKey)
 	var tx *types.Transaction
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
@@ -263,7 +261,7 @@ func airdrop(value *big.Int) error {
 		to := common.HexToAddress(addr)
 		gp, _ := backend.SuggestGasPrice(context.Background())
 		tx2 := types.NewTransaction(nonce, to, value, 21000, gp, nil)
-		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), sk)
+		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), config.faucet)
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 			fmt.Printf("error sending transaction; could not airdrop: %v\n", err)
 			return err

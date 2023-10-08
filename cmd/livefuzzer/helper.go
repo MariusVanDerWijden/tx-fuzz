@@ -11,21 +11,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey, error) {
-	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
-
-	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
-	if crypto.PubkeyToAddress(sk.PublicKey).Hex() != txfuzz.ADDR {
-		panic(fmt.Sprintf("wrong address want %s got %s", crypto.PubkeyToAddress(sk.PublicKey).Hex(), txfuzz.ADDR))
-	}
-	cl, err := rpc.Dial(address)
-	return cl, sk, err
-}
-
-func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) error {
+func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) error {
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
@@ -42,7 +30,8 @@ func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 	return backend.SendTransaction(context.Background(), signedTx)
 }
 
-func unstuck(sk *ecdsa.PrivateKey, backend *ethclient.Client, sender, to common.Address, value, gasPrice *big.Int) error {
+func unstuck(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value, gasPrice *big.Int) error {
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	blocknumber, err := backend.BlockNumber(context.Background())
 	if err != nil {
 		return err
