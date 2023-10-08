@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
-func sendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) error {
+func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) error {
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
