@@ -9,11 +9,12 @@ import (
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 )
 
-type Spam func(*Config, *ecdsa.PrivateKey, *filler.Filler)
+type Spam func(*Config, *ecdsa.PrivateKey, *filler.Filler) error
 
-func SpamTransactions(config *Config, fun Spam) {
+func SpamTransactions(config *Config, fun Spam) error {
 	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", config.n, len(config.keys), config.seed)
 
+	errCh := make(chan error, len(config.keys))
 	var wg sync.WaitGroup
 	wg.Add(len(config.keys))
 	for _, key := range config.keys {
@@ -34,8 +35,14 @@ func SpamTransactions(config *Config, fun Spam) {
 		// Start a fuzzing thread
 		go func(key *ecdsa.PrivateKey, filler *filler.Filler) {
 			defer wg.Done()
-			fun(config, key, f)
+			errCh <- fun(config, key, f)
 		}(key, f)
 	}
 	wg.Wait()
+	select {
+	case err := <-errCh:
+		return err
+	default:
+		return nil
+	}
 }

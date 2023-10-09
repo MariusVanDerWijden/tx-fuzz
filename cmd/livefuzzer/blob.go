@@ -18,7 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Filler) {
+func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Filler) error {
 	backend := ethclient.NewClient(config.backend)
 	sender := crypto.PubkeyToAddress(key.PublicKey)
 	chainID, err := backend.ChainID(context.Background())
@@ -31,22 +31,21 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 	for i := uint64(0); i < config.n; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
-			log.Warn("Could not get nonce: %v", nonce)
-			continue
+			return err
 		}
 		tx, err := txfuzz.RandomBlobTx(config.backend, f, sender, nonce, nil, nil, config.accessList)
 		if err != nil {
 			log.Warn("Could not create valid tx: %v", nonce)
-			continue
+			return err
 		}
 		signedTx, err := types.SignTx(tx.Transaction, types.NewCancunSigner(chainID), key)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		tx.Transaction = signedTx
 		rlpData, err := tx.MarshalBinary()
 		if err != nil {
-			panic(err)
+			return err
 		}
 		if err := config.backend.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
 			if strings.Contains(err.Error(), "account limit exceeded") {
@@ -54,7 +53,7 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 				time.Sleep(1 * time.Minute)
 				continue
 			} else {
-				panic(err)
+				return err
 			}
 		}
 		lastTx = signedTx
@@ -68,4 +67,5 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 			fmt.Printf("Wait mined failed for blob transactions: %v\n", err.Error())
 		}
 	}
+	return nil
 }

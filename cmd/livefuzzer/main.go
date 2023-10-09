@@ -134,7 +134,7 @@ func runBlobSpam(c *cli.Context) error {
 	}
 	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.n)*1000000)), big.NewInt(params.GWei))
 	airdropValue = airdropValue.Mul(airdropValue, big.NewInt(100))
-	return spam(config, SendBasicTransactions, airdropValue)
+	return spam(config, SendBlobTransactions, airdropValue)
 }
 
 func runUnstuck(c *cli.Context) error {
