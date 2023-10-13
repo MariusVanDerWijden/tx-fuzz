@@ -114,7 +114,7 @@ func spam(config *Config, spamFn Spam, airdropValue *big.Int) error {
 			return err
 		}
 		SpamTransactions(config, spamFn)
-		time.Sleep(12 * time.Second)
+		time.Sleep(time.Duration(config.blockTime) * time.Second)
 	}
 }
 

@@ -27,6 +27,7 @@ type Config struct {
 	corpus     [][]byte            // optional corpus to use elements from
 	accessList bool                // whether to create accesslist transactions
 	gasLimit   uint64              // gas limit per transaction
+	blockTime  uint64              // block time used for chain in seconds
 
 	seed int64            // seed used for generating randomness
 	mut  *mutator.Mutator // Mutator based on the seed
@@ -93,6 +94,8 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	bt := c.Int(blockTimeFlag.Name)
+
 	return &Config{
 		backend:    backend,
 		n:          uint64(N),
@@ -103,6 +106,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		keys:       keys,
 		corpus:     corpus,
 		mut:        mut,
+		blockTime:  uint64(bt),
 	}, nil
 }
 

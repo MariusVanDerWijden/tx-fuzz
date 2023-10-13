@@ -50,6 +50,12 @@ var (
 		Value: 100_000,
 	}
 
+	blockTimeFlag = &cli.IntFlag{
+		Name:  "blocktime",
+		Usage: "Block time used for chain in seconds",
+		Value: 12,
+	}
+
 	spamFlags = []cli.Flag{
 		skFlag,
 		seedFlag,
@@ -59,5 +65,6 @@ var (
 		txCountFlag,
 		countFlag,
 		gasLimitFlag,
+		blockTimeFlag,
 	}
 )
