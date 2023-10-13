@@ -62,6 +62,7 @@ func initApp() *cli.App {
 		spamCommand,
 		blobSpamCommand,
 		createCommand,
+		unstuckCommand,
 	}
 	return app
 }
