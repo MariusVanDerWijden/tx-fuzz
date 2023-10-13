@@ -46,6 +46,13 @@ var createCommand = &cli.Command{
 	},
 }
 
+var unstuckCommand = &cli.Command{
+	Name:   "unstuck",
+	Usage:  "Tries to unstuck an account",
+	Action: runUnstuck,
+	Flags:  flags.SpamFlags,
+}
+
 func initApp() *cli.App {
 	app := cli.NewApp()
 	app.Name = "tx-fuzz"
@@ -112,4 +119,12 @@ func runBlobSpam(c *cli.Context) error {
 func runCreate(c *cli.Context) error {
 	spammer.CreateAddresses(100)
 	return nil
+}
+
+func runUnstuck(c *cli.Context) error {
+	config, err := spammer.NewConfigFromContext(c)
+	if err != nil {
+		return err
+	}
+	return spammer.Unstuck(config)
 }
