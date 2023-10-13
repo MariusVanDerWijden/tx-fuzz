@@ -28,7 +28,7 @@ func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 		return nil, err
 	}
 	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewTransaction(nonce, to, value, 500000, gp, nil)
+	tx := types.NewTransaction(nonce+1, to, value, 500000, gp, nil)
 	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	return signedTx, backend.SendTransaction(context.Background(), signedTx)
 }
