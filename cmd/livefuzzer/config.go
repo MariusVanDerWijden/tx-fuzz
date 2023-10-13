@@ -32,6 +32,32 @@ type Config struct {
 	mut  *mutator.Mutator // Mutator based on the seed
 }
 
+func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand) (*Config, error) {
+	// Setup RPC
+	backend, err := rpc.Dial(rpcAddr)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup Keys
+	var keys []*ecdsa.PrivateKey
+	for i := 0; i < len(staticKeys); i++ {
+		keys = append(keys, crypto.ToECDSAUnsafe(common.FromHex(staticKeys[i])))
+	}
+
+	return &Config{
+		backend:    backend,
+		n:          N,
+		faucet:     crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK)),
+		keys:       keys,
+		corpus:     [][]byte{},
+		accessList: accessList,
+		gasLimit:   30_000_000,
+		seed:       0,
+		mut:        mutator.NewMutator(rng),
+	}, nil
+}
+
 func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup RPC
 	rpcAddr := c.String(rpcFlag.Name)
