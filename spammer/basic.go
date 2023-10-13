@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"context"
@@ -26,7 +26,7 @@ func SendBasicTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fill
 	}
 
 	var lastTx *types.Transaction
-	for i := uint64(0); i < config.n; i++ {
+	for i := uint64(0); i < config.N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
 			return err

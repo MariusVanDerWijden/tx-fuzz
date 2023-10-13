@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"crypto/ecdsa"
@@ -12,7 +12,7 @@ import (
 type Spam func(*Config, *ecdsa.PrivateKey, *filler.Filler) error
 
 func SpamTransactions(config *Config, fun Spam) error {
-	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", config.n, len(config.keys), config.seed)
+	fmt.Printf("Spamming %v transactions per account on %v accounts with seed: 0x%x\n", config.N, len(config.keys), config.seed)
 
 	errCh := make(chan error, len(config.keys))
 	var wg sync.WaitGroup

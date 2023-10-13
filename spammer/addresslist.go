@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"context"
@@ -219,7 +219,7 @@ var (
 	}
 )
 
-func createAddresses(N int) ([]string, []string) {
+func CreateAddresses(N int) ([]string, []string) {
 	keys := make([]string, 0, N)
 	addrs := make([]string, 0, N)
 
@@ -243,7 +243,7 @@ func createAddresses(N int) ([]string, []string) {
 	return keys, addrs
 }
 
-func airdrop(config *Config, value *big.Int) error {
+func Airdrop(config *Config, value *big.Int) error {
 	backend := ethclient.NewClient(config.backend)
 	sender := crypto.PubkeyToAddress(config.faucet.PublicKey)
 	var tx *types.Transaction

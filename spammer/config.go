@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"os"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
+	"github.com/MariusVanDerWijden/tx-fuzz/flags"
 	"github.com/MariusVanDerWijden/tx-fuzz/mutator"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,7 +22,7 @@ import (
 type Config struct {
 	backend *rpc.Client // connection to the rpc provider
 
-	n          uint64              // number of transactions send per account
+	N          uint64              // number of transactions send per account
 	faucet     *ecdsa.PrivateKey   // private key of the faucet account
 	keys       []*ecdsa.PrivateKey // private keys of accounts
 	corpus     [][]byte            // optional corpus to use elements from
@@ -47,7 +48,7 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 
 	return &Config{
 		backend:    backend,
-		n:          N,
+		N:          N,
 		faucet:     crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK)),
 		keys:       keys,
 		corpus:     [][]byte{},
@@ -60,7 +61,7 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 
 func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup RPC
-	rpcAddr := c.String(rpcFlag.Name)
+	rpcAddr := c.String(flags.RpcFlag.Name)
 	backend, err := rpc.Dial(rpcAddr)
 	if err != nil {
 		return nil, err
@@ -68,7 +69,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 
 	// Setup faucet
 	faucet := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
-	if sk := c.String(skFlag.Name); sk != "" {
+	if sk := c.String(flags.SkFlag.Name); sk != "" {
 		faucet, err = crypto.ToECDSA(common.FromHex(sk))
 		if err != nil {
 			return nil, err
@@ -77,7 +78,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 
 	// Setup Keys
 	var keys []*ecdsa.PrivateKey
-	nKeys := c.Int(countFlag.Name)
+	nKeys := c.Int(flags.CountFlag.Name)
 	if nKeys == 0 || nKeys > len(staticKeys) {
 		fmt.Printf("Sanitizing count flag from %v to %v\n", nKeys, len(staticKeys))
 		nKeys = len(staticKeys)
@@ -87,10 +88,10 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	}
 
 	// Setup gasLimit
-	gasLimit := c.Int(gasLimitFlag.Name)
+	gasLimit := c.Int(flags.GasLimitFlag.Name)
 
 	// Setup N
-	N := c.Int(txCountFlag.Name)
+	N := c.Int(flags.TxCountFlag.Name)
 	if N == 0 {
 		N, err = setupN(backend, len(keys), gasLimit)
 		if err != nil {
@@ -99,7 +100,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	}
 
 	// Setup seed
-	seed := c.Int64(seedFlag.Name)
+	seed := c.Int64(flags.SeedFlag.Name)
 	if seed == 0 {
 		fmt.Println("No seed provided, creating one")
 		rnd := make([]byte, 8)
@@ -112,7 +113,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 
 	// Setup corpus
 	var corpus [][]byte
-	if corpusFile := c.String(corpusFlag.Name); corpusFile != "" {
+	if corpusFile := c.String(flags.CorpusFlag.Name); corpusFile != "" {
 		corpus, err = readCorpusElements(corpusFile)
 		if err != nil {
 			return nil, err
@@ -121,9 +122,9 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 
 	return &Config{
 		backend:    backend,
-		n:          uint64(N),
+		N:          uint64(N),
 		faucet:     faucet,
-		accessList: !c.Bool(noALFlag.Name),
+		accessList: !c.Bool(flags.NoALFlag.Name),
 		gasLimit:   uint64(gasLimit),
 		seed:       seed,
 		keys:       keys,
