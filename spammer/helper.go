@@ -18,7 +18,7 @@ import (
 
 func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) (*types.Transaction, error) {
 	sender := common.HexToAddress(txfuzz.ADDR)
-	nonce, err := backend.PendingNonceAt(context.Background(), sender)
+	nonce, err := backend.NonceAt(context.Background(), sender, nil)
 	if err != nil {
 		fmt.Printf("Could not get pending nonce: %v", err)
 	}
