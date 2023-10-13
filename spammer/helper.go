@@ -8,7 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -17,7 +16,7 @@ import (
 )
 
 func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) (*types.Transaction, error) {
-	sender := common.HexToAddress(txfuzz.ADDR)
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	nonce, err := backend.NonceAt(context.Background(), sender, nil)
 	if err != nil {
 		fmt.Printf("Could not get pending nonce: %v", err)
@@ -28,7 +27,7 @@ func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 		return nil, err
 	}
 	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewTransaction(nonce+1, to, value, 500000, gp, nil)
+	tx := types.NewTransaction(nonce, to, value, 500000, gp.Mul(gp, big.NewInt(100)), nil)
 	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	return signedTx, backend.SendTransaction(context.Background(), signedTx)
 }
