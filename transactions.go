@@ -79,7 +79,6 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 		chainID:  chainID,
 		code:     code,
 	}
-
 }
 
 // RandomValidTx creates a random valid transaction.
