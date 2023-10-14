@@ -89,6 +89,8 @@ func runAirdrop(c *cli.Context) error {
 }
 
 func spam(config *spammer.Config, spamFn spammer.Spam, airdropValue *big.Int) error {
+	// Make sure the accounts are unstuck before sending any transactions
+	spammer.Unstuck(config)
 	for {
 		if err := spammer.Airdrop(config, airdropValue); err != nil {
 			return err

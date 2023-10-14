@@ -15,13 +15,18 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 )
 
+const batchSize = 50
+
 func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int) (*types.Transaction, error) {
 	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	nonce, err := backend.NonceAt(context.Background(), sender, nil)
 	if err != nil {
 		fmt.Printf("Could not get pending nonce: %v", err)
 	}
-	fmt.Printf("Nonce: %v\n", nonce)
+	return sendTxWithNonce(sk, backend, to, value, nonce)
+}
+
+func sendTxWithNonce(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int, nonce uint64) (*types.Transaction, error) {
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
 		return nil, err
@@ -30,6 +35,21 @@ func SendTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, 
 	tx := types.NewTransaction(nonce, to, value, 500000, gp.Mul(gp, big.NewInt(100)), nil)
 	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	return signedTx, backend.SendTransaction(context.Background(), signedTx)
+}
+
+func sendRecurringTx(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.Address, value *big.Int, numTxs uint64) (*types.Transaction, error) {
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
+	nonce, err := backend.NonceAt(context.Background(), sender, nil)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		tx *types.Transaction
+	)
+	for i := 0; i < int(numTxs); i++ {
+		tx, err = sendTxWithNonce(sk, backend, to, value, nonce+uint64(i))
+	}
+	return tx, err
 }
 
 func Unstuck(config *Config) error {
@@ -58,13 +78,16 @@ func tryUnstuck(config *Config, sk *ecdsa.PrivateKey) error {
 			return nil
 		}
 
-		fmt.Println("Sending transaction to unstuck account")
 		// Self-transfer of 1 wei to unstuck
-		tx, err := SendTx(sk, client, addr, big.NewInt(1))
+		if noTx > batchSize {
+			noTx = batchSize
+		}
+		fmt.Println("Sending transaction to unstuck account")
+		tx, err := sendRecurringTx(sk, client, addr, big.NewInt(1), noTx)
 		if err != nil {
 			return err
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, client, tx); err != nil {
 			return err
@@ -87,7 +110,7 @@ func isStuck(config *Config, account common.Address) (uint64, error) {
 	}
 
 	if pendingNonce != nonce {
-		fmt.Printf("Account %v is stuck: pendingNonce: %v currentNonce: %v\n", account, pendingNonce, nonce)
+		fmt.Printf("Account %v is stuck: pendingNonce: %v currentNonce: %v, missing nonces: %v\n", account, pendingNonce, nonce, pendingNonce-nonce)
 		return pendingNonce - nonce, nil
 	}
 	return 0, nil
