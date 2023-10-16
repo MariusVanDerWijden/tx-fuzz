@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"context"
@@ -16,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
+const TX_TIMEOUT = 5 * time.Minute
+
 func SendBasicTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Filler) error {
 	backend := ethclient.NewClient(config.backend)
 	sender := crypto.PubkeyToAddress(key.PublicKey)
@@ -26,7 +28,7 @@ func SendBasicTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fill
 	}
 
 	var lastTx *types.Transaction
-	for i := uint64(0); i < config.n; i++ {
+	for i := uint64(0); i < config.N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
 			return err
@@ -48,10 +50,10 @@ func SendBasicTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fill
 		time.Sleep(10 * time.Millisecond)
 	}
 	if lastTx != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), TX_TIMEOUT)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
-			fmt.Printf("Wait mined failed for SendBaikalTransactions: %v\n", err.Error())
+			fmt.Printf("Waiting for transactions to be mined failed: %v\n", err.Error())
 		}
 	}
 	return nil

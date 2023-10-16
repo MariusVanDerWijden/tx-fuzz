@@ -1,4 +1,4 @@
-package main
+package spammer
 
 import (
 	"context"
@@ -28,7 +28,7 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 	}
 
 	var lastTx *types.Transaction
-	for i := uint64(0); i < config.n; i++ {
+	for i := uint64(0); i < config.N; i++ {
 		nonce, err := backend.NonceAt(context.Background(), sender, big.NewInt(-1))
 		if err != nil {
 			return err
@@ -61,10 +61,10 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 	}
 
 	if lastTx != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 24*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), TX_TIMEOUT)
 		defer cancel()
 		if _, err := bind.WaitMined(ctx, backend, lastTx); err != nil {
-			fmt.Printf("Wait mined failed for blob transactions: %v\n", err.Error())
+			fmt.Printf("Waiting for transactions to be mined failed: %v\n", err.Error())
 		}
 	}
 	return nil

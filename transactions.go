@@ -3,7 +3,6 @@ package txfuzz
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"math/big"
 	"math/rand"
 
@@ -32,171 +31,213 @@ func RandomTx(f *filler.Filler) (*types.Transaction, error) {
 	return RandomValidTx(nil, f, common.Address{}, nonce, gasPrice, chainID, false)
 }
 
+type txConf struct {
+	rpc      *rpc.Client
+	nonce    uint64
+	sender   common.Address
+	to       *common.Address
+	value    *big.Int
+	gasLimit uint64
+	gasPrice *big.Int
+	chainID  *big.Int
+	code     []byte
+}
+
+func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int) *txConf {
+	// Set fields if non-nil
+	if rpc != nil {
+		client := ethclient.NewClient(rpc)
+		var err error
+		if gasPrice == nil {
+			gasPrice, err = client.SuggestGasPrice(context.Background())
+			if err != nil {
+				gasPrice = big.NewInt(1)
+			}
+		}
+		if chainID == nil {
+			chainID, err = client.ChainID(context.Background())
+			if err != nil {
+				chainID = big.NewInt(1)
+			}
+		}
+	}
+	gas := uint64(100000)
+	to := randomAddress()
+	code := RandomCode(f)
+	value := big.NewInt(0)
+	if len(code) > 128 {
+		code = code[:128]
+	}
+	return &txConf{
+		rpc:      rpc,
+		nonce:    nonce,
+		sender:   sender,
+		to:       &to,
+		value:    value,
+		gasLimit: gas,
+		gasPrice: gasPrice,
+		chainID:  chainID,
+		code:     code,
+	}
+}
+
 // RandomValidTx creates a random valid transaction.
 // It does not mean that the transaction will succeed, but that it is well-formed.
 // If gasPrice is not set, we will try to get it from the rpc
 // If chainID is not set, we will try to get it from the rpc
 func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
-	// Set fields if non-nil
-	if rpc != nil {
-		client := ethclient.NewClient(rpc)
-		var err error
-		if gasPrice == nil {
-			gasPrice, err = client.SuggestGasPrice(context.Background())
-			if err != nil {
-				gasPrice = big.NewInt(1)
-			}
-		}
-		if chainID == nil {
-			chainID, err = client.ChainID(context.Background())
-			if err != nil {
-				chainID = big.NewInt(1)
-			}
-		}
-	}
-	gas := uint64(100000)
-	to := randomAddress()
-	code := RandomCode(f)
-	value := big.NewInt(0)
-	if len(code) > 128 {
-		code = code[:128]
-	}
-	mod := 10
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
 	if al {
-		mod = 5
+		index := rand.Intn(len(alStrategies))
+		return alStrategies[index](conf)
+	} else {
+		index := rand.Intn(len(noAlStrategies))
+		return noAlStrategies[index](conf)
 	}
-	switch f.Byte() % byte(mod) {
-	case 0:
-		// Legacy contract creation
-		return types.NewContractCreation(nonce, value, gas, gasPrice, code), nil
-	case 1:
-		// Legacy transaction
-		return types.NewTransaction(nonce, to, value, gas, gasPrice, code), nil
-	case 2:
-		// AccessList contract creation
-		return newALTx(nonce, nil, gas, chainID, gasPrice, value, code, make(types.AccessList, 0)), nil
-	case 3:
-		// AccessList transaction
-		return newALTx(nonce, &to, gas, chainID, gasPrice, value, code, make(types.AccessList, 0)), nil
-
-	case 4:
-		// 1559 contract creation
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
-	case 5:
-		// 1559 transaction
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, make(types.AccessList, 0)), nil
-
-	case 6:
-		// AccessList contract creation with AL
-		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
-		al, err := CreateAccessList(rpc, tx, sender)
-		if err != nil {
-			return nil, err
-		}
-		return newALTx(nonce, nil, gas, chainID, gasPrice, value, code, *al), nil
-	case 7:
-		// AccessList transaction with AL
-		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
-		al, err := CreateAccessList(rpc, tx, sender)
-		if err != nil {
-			return nil, err
-		}
-		return newALTx(nonce, &to, gas, chainID, gasPrice, value, code, *al), nil
-	case 8:
-		// 1559 contract creation with AL
-		tx := types.NewContractCreation(nonce, value, gas, gasPrice, code)
-		al, err := CreateAccessList(rpc, tx, sender)
-		if err != nil {
-			return nil, err
-		}
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, nil, gas, chainID, tip, feecap, value, code, *al), nil
-	case 9:
-		// 1559 tx with AL
-		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
-		al, err := CreateAccessList(rpc, tx, sender)
-		if err != nil {
-			return nil, err
-		}
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		return new1559Tx(nonce, &to, gas, chainID, tip, feecap, value, code, *al), nil
-	}
-	return nil, errors.New("asdf")
 }
 
 func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.BlobTxWithBlobs, error) {
-	// Set fields if non-nil
-	if rpc != nil {
-		client := ethclient.NewClient(rpc)
-		var err error
-		if gasPrice == nil {
-			gasPrice, err = client.SuggestGasPrice(context.Background())
-			if err != nil {
-				gasPrice = big.NewInt(1)
-			}
-		}
-		if chainID == nil {
-			chainID, err = client.ChainID(context.Background())
-			if err != nil {
-				chainID = big.NewInt(1)
-			}
-		}
-	}
-	gas := uint64(100000)
-	to := randomAddress()
-	code := RandomCode(f)
-	value := big.NewInt(0)
-	if len(code) > 128 {
-		code = code[:128]
-	}
-	mod := 2
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
 	if al {
-		mod = 1
+		return fullAlBlobTx(conf)
+	} else {
+		return emptyAlBlobTx(conf)
 	}
-	switch f.Byte() % byte(mod) {
-	case 0:
-		// 4844 transaction without AL
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		data, err := randomBlobData()
-		if err != nil {
-			return nil, err
-		}
-		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, big.NewInt(1000000), data, make(types.AccessList, 0)), nil
-	case 1:
-		// 4844 transaction with AL
-		tx := types.NewTransaction(nonce, to, value, gas, gasPrice, code)
-		al, err := CreateAccessList(rpc, tx, sender)
-		if err != nil {
-			return nil, err
-		}
-		tip, feecap, err := getCaps(rpc, gasPrice)
-		if err != nil {
-			return nil, err
-		}
-		data, err := randomBlobData()
-		if err != nil {
-			return nil, err
-		}
-		return New4844Tx(nonce, &to, gas, chainID, tip, feecap, value, code, big.NewInt(1000000), data, *al), nil
+}
+
+type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
+
+var noAlStrategies = []txCreationStrategy{
+	legacyContractCreation,
+	legacyTx,
+	emptyAlContractCreation,
+	emptyAlTx,
+	contractCreation1559,
+	tx1559,
+}
+
+var alStrategies = append(noAlStrategies, []txCreationStrategy{
+	fullAl1559ContractCreation,
+	fullAl1559Tx,
+	fullAlContractCreation,
+	fullAlTx,
+}...)
+
+func legacyContractCreation(conf *txConf) (*types.Transaction, error) {
+	// Legacy contract creation
+	return types.NewContractCreation(conf.nonce, conf.value, conf.gasLimit, conf.gasPrice, conf.code), nil
+}
+
+func legacyTx(conf *txConf) (*types.Transaction, error) {
+	// Legacy transaction
+	return types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code), nil
+}
+
+func emptyAlContractCreation(conf *txConf) (*types.Transaction, error) {
+	// AccessList contract creation
+	return newALTx(conf.nonce, nil, conf.gasLimit, conf.chainID, conf.gasPrice, conf.value, conf.code, make(types.AccessList, 0)), nil
+}
+
+func emptyAlTx(conf *txConf) (*types.Transaction, error) {
+	// AccessList transaction
+	return newALTx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, conf.gasPrice, conf.value, conf.code, make(types.AccessList, 0)), nil
+}
+
+func contractCreation1559(conf *txConf) (*types.Transaction, error) {
+	// 1559 contract creation
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("asdf")
+	return new1559Tx(conf.nonce, nil, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, make(types.AccessList, 0)), nil
+}
+
+func tx1559(conf *txConf) (*types.Transaction, error) {
+	// 1559 transaction
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	return new1559Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, make(types.AccessList, 0)), nil
+}
+
+func fullAlContractCreation(conf *txConf) (*types.Transaction, error) {
+	// AccessList contract creation with AL
+	tx := types.NewContractCreation(conf.nonce, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
+	if err != nil {
+		return nil, err
+	}
+	return newALTx(conf.nonce, nil, conf.gasLimit, conf.chainID, conf.gasPrice, conf.value, conf.code, *al), nil
+}
+
+func fullAlTx(conf *txConf) (*types.Transaction, error) {
+	// AccessList transaction with AL
+	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
+	if err != nil {
+		return nil, err
+	}
+	return newALTx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, conf.gasPrice, conf.value, conf.code, *al), nil
+}
+
+func fullAl1559ContractCreation(conf *txConf) (*types.Transaction, error) {
+	// 1559 contract creation with AL
+	tx := types.NewContractCreation(conf.nonce, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
+	if err != nil {
+		return nil, err
+	}
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	return new1559Tx(conf.nonce, nil, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, *al), nil
+}
+
+func fullAl1559Tx(conf *txConf) (*types.Transaction, error) {
+	// 1559 tx with AL
+	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
+	if err != nil {
+		return nil, err
+	}
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	return new1559Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, *al), nil
+}
+
+func emptyAlBlobTx(conf *txConf) (*types.BlobTxWithBlobs, error) {
+	// 4844 transaction without AL
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	data, err := randomBlobData()
+	if err != nil {
+		return nil, err
+	}
+	return New4844Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), data, make(types.AccessList, 0)), nil
+}
+
+func fullAlBlobTx(conf *txConf) (*types.BlobTxWithBlobs, error) {
+	// 4844 transaction with AL
+	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
+	if err != nil {
+		return nil, err
+	}
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	data, err := randomBlobData()
+	if err != nil {
+		return nil, err
+	}
+	return New4844Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), data, *al), nil
 }
 
 func newALTx(nonce uint64, to *common.Address, gasLimit uint64, chainID, gasPrice, value *big.Int, code []byte, al types.AccessList) *types.Transaction {

@@ -1,16 +1,13 @@
 package main
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/MariusVanDerWijden/tx-fuzz/flags"
+	"github.com/MariusVanDerWijden/tx-fuzz/spammer"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/urfave/cli/v2"
 )
@@ -20,8 +17,8 @@ var airdropCommand = &cli.Command{
 	Usage:  "Airdrops to a list of accounts",
 	Action: runAirdrop,
 	Flags: []cli.Flag{
-		skFlag,
-		rpcFlag,
+		flags.SkFlag,
+		flags.RpcFlag,
 	},
 }
 
@@ -29,24 +26,14 @@ var spamCommand = &cli.Command{
 	Name:   "spam",
 	Usage:  "Send spam transactions",
 	Action: runBasicSpam,
-	Flags:  spamFlags,
+	Flags:  flags.SpamFlags,
 }
 
 var blobSpamCommand = &cli.Command{
 	Name:   "blobs",
 	Usage:  "Send blob spam transactions",
 	Action: runBlobSpam,
-	Flags:  spamFlags,
-}
-
-var unstuckCommand = &cli.Command{
-	Name:   "unstuck",
-	Usage:  "Tries to unstuck an account",
-	Action: runUnstuck,
-	Flags: []cli.Flag{
-		skFlag,
-		rpcFlag,
-	},
+	Flags:  flags.SpamFlags,
 }
 
 var createCommand = &cli.Command{
@@ -54,9 +41,16 @@ var createCommand = &cli.Command{
 	Usage:  "Create ephemeral accounts",
 	Action: runCreate,
 	Flags: []cli.Flag{
-		countFlag,
-		rpcFlag,
+		flags.CountFlag,
+		flags.RpcFlag,
 	},
+}
+
+var unstuckCommand = &cli.Command{
+	Name:   "unstuck",
+	Usage:  "Tries to unstuck an account",
+	Action: runUnstuck,
+	Flags:  flags.SpamFlags,
 }
 
 func initApp() *cli.App {
@@ -67,8 +61,8 @@ func initApp() *cli.App {
 		airdropCommand,
 		spamCommand,
 		blobSpamCommand,
-		unstuckCommand,
 		createCommand,
+		unstuckCommand,
 	}
 	return app
 }
@@ -83,70 +77,57 @@ func main() {
 	}
 }
 
-func unstuckTransactions(config *Config) {
-	client := ethclient.NewClient(config.backend)
-	faucetAddr := crypto.PubkeyToAddress(config.faucet.PublicKey)
-	var wg sync.WaitGroup
-	wg.Add(len(config.keys))
-	for _, key := range config.keys {
-		go func(key *ecdsa.PrivateKey) {
-			unstuck(config.faucet, client, faucetAddr, common.Big0, nil)
-			wg.Done()
-		}(key)
-	}
-	wg.Wait()
-}
-
 func runAirdrop(c *cli.Context) error {
-	config, err := NewConfigFromContext(c)
+	config, err := spammer.NewConfigFromContext(c)
 	if err != nil {
 		return err
 	}
-	txPerAccount := config.n
+	txPerAccount := config.N
 	airdropValue := new(big.Int).Mul(big.NewInt(int64(txPerAccount*100000)), big.NewInt(params.GWei))
-	airdrop(config, airdropValue)
+	spammer.Airdrop(config, airdropValue)
 	return nil
 }
 
-func spam(config *Config, spamFn Spam, airdropValue *big.Int) error {
+func spam(config *spammer.Config, spamFn spammer.Spam, airdropValue *big.Int) error {
+	// Make sure the accounts are unstuck before sending any transactions
+	spammer.Unstuck(config)
 	for {
-		if err := airdrop(config, airdropValue); err != nil {
+		if err := spammer.Airdrop(config, airdropValue); err != nil {
 			return err
 		}
-		SpamTransactions(config, spamFn)
+		spammer.SpamTransactions(config, spamFn)
 		time.Sleep(12 * time.Second)
 	}
 }
 
 func runBasicSpam(c *cli.Context) error {
-	config, err := NewConfigFromContext(c)
+	config, err := spammer.NewConfigFromContext(c)
 	if err != nil {
 		return err
 	}
-	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.n)*1000000)), big.NewInt(params.GWei))
-	return spam(config, SendBasicTransactions, airdropValue)
+	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.N)*1000000)), big.NewInt(params.GWei))
+	return spam(config, spammer.SendBasicTransactions, airdropValue)
 }
 
 func runBlobSpam(c *cli.Context) error {
-	config, err := NewConfigFromContext(c)
+	config, err := spammer.NewConfigFromContext(c)
 	if err != nil {
 		return err
 	}
-	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.n)*1000000)), big.NewInt(params.GWei))
+	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.N)*1000000)), big.NewInt(params.GWei))
 	airdropValue = airdropValue.Mul(airdropValue, big.NewInt(100))
-	return spam(config, SendBlobTransactions, airdropValue)
-}
-
-func runUnstuck(c *cli.Context) error {
-	config, err := NewConfigFromContext(c)
-	if err != nil {
-		return err
-	}
-	unstuckTransactions(config)
-	return nil
+	return spam(config, spammer.SendBlobTransactions, airdropValue)
 }
 
 func runCreate(c *cli.Context) error {
-	createAddresses(100)
+	spammer.CreateAddresses(100)
 	return nil
+}
+
+func runUnstuck(c *cli.Context) error {
+	config, err := spammer.NewConfigFromContext(c)
+	if err != nil {
+		return err
+	}
+	return spammer.Unstuck(config)
 }
