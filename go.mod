@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/MariusVanDerWijden/FuzzyVM v0.0.0-20230606141057-24202385e744
-	github.com/ethereum/go-ethereum v1.12.2
+	github.com/ethereum/go-ethereum v1.13.5-0.20231022140504-a6a0ae45b69a
 	github.com/holiman/goevmlab v0.0.0-20230602194133-da4e4913b799
 	github.com/urfave/cli/v2 v2.25.1
 )
