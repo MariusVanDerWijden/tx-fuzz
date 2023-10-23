@@ -476,8 +476,6 @@ github.com/holiman/billy v0.0.0-20230718173358-1c7e68d277a7 h1:3JQNjnMRil1yD0IfZ
 github.com/holiman/bloomfilter/v2 v2.0.3 h1:73e0e/V0tCydx14a0SCYS/EWCxgwLZ18CZcZKVu0fao=
 github.com/holiman/bloomfilter/v2 v2.0.3/go.mod h1:zpoh+gs7qcpqrHr3dB55AMiJwo0iURXE7ZOP9L9hSkA=
 github.com/holiman/goevmlab v0.0.0-20230316064510-98c61355fce0/go.mod h1:Jjw7KSvYX9UqMF0NnqUgC11BYO38wpOxL8bHATYX4kA=
-github.com/holiman/goevmlab v0.0.0-20230602194133-da4e4913b799 h1:BPP25cIOO16g50P6PgZ1dYkyOD2WBLCcl+2GJ+yQgNw=
-github.com/holiman/goevmlab v0.0.0-20230602194133-da4e4913b799/go.mod h1:z2Lgbrti+/tEP5LlI/K1Phv6EDhEkdQVa1XPUjMApcU=
 github.com/holiman/goevmlab v0.0.0-20230917164918-f3777d0b880b h1:K56eEHgH3CcQma/sZnZi9apLYD1gsUVTK9xc9QWVaac=
 github.com/holiman/goevmlab v0.0.0-20230917164918-f3777d0b880b/go.mod h1:Xf54jEqUJ0PwTEF9Z6e8FSLpnLpyB0QUfdHA3you/sw=
 github.com/holiman/uint256 v1.2.0/go.mod h1:y4ga/t+u+Xwd7CpDgZESaRcWy0I7XMlTMA25ApIH5Jw=
