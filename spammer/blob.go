@@ -5,13 +5,11 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -38,23 +36,13 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 			log.Warn("Could not create valid tx: %v", nonce)
 			return err
 		}
-		signedTx, err := types.SignTx(tx.Transaction, types.NewCancunSigner(chainID), key)
+		signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), key)
 		if err != nil {
 			return err
 		}
-		tx.Transaction = signedTx
-		rlpData, err := tx.MarshalBinary()
-		if err != nil {
+		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
+			log.Warn("Could not submit transaction: %v", err)
 			return err
-		}
-		if err := config.backend.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
-			if strings.Contains(err.Error(), "account limit exceeded") {
-				// Back off for a bit if we send a lot of transactions at once
-				time.Sleep(1 * time.Minute)
-				continue
-			} else {
-				return err
-			}
 		}
 		lastTx = signedTx
 		time.Sleep(10 * time.Millisecond)

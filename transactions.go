@@ -96,7 +96,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	}
 }
 
-func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.BlobTxWithBlobs, error) {
+func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
 	if al {
 		return fullAlBlobTx(conf)
@@ -209,7 +209,7 @@ func fullAl1559Tx(conf *txConf) (*types.Transaction, error) {
 	return new1559Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, *al), nil
 }
 
-func emptyAlBlobTx(conf *txConf) (*types.BlobTxWithBlobs, error) {
+func emptyAlBlobTx(conf *txConf) (*types.Transaction, error) {
 	// 4844 transaction without AL
 	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
 	if err != nil {
@@ -222,7 +222,7 @@ func emptyAlBlobTx(conf *txConf) (*types.BlobTxWithBlobs, error) {
 	return New4844Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), data, make(types.AccessList, 0)), nil
 }
 
-func fullAlBlobTx(conf *txConf) (*types.BlobTxWithBlobs, error) {
+func fullAlBlobTx(conf *txConf) (*types.Transaction, error) {
 	// 4844 transaction with AL
 	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
 	al, err := CreateAccessList(conf.rpc, tx, conf.sender)
@@ -267,12 +267,12 @@ func new1559Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 	})
 }
 
-func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, blobData []byte, al types.AccessList) *types.BlobTxWithBlobs {
+func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, blobData []byte, al types.AccessList) *types.Transaction {
 	blobs, commits, aggProof, versionedHashes, err := EncodeBlobs(blobData)
 	if err != nil {
 		panic(err)
 	}
-	tx := types.NewTx(&types.BlobTx{
+	return types.NewTx(&types.BlobTx{
 		ChainID:    uint256.MustFromBig(chainID),
 		Nonce:      nonce,
 		GasTipCap:  uint256.MustFromBig(tip),
@@ -284,8 +284,8 @@ func New4844Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, 
 		AccessList: al,
 		BlobFeeCap: uint256.MustFromBig(blobFeeCap),
 		BlobHashes: versionedHashes,
+		Sidecar:    &types.BlobTxSidecar{Blobs: blobs, Commitments: commits, Proofs: aggProof},
 	})
-	return types.NewBlobTxWithBlobs(tx, blobs, commits, aggProof)
 }
 
 func getCaps(rpc *rpc.Client, defaultGasPrice *big.Int) (*big.Int, *big.Int, error) {

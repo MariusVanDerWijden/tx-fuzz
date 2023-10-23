@@ -31,11 +31,17 @@ var (
 )
 
 func main() {
+	fmt.Println("4788")
 	test4788()
+	fmt.Println("1153")
 	test1153()
+	fmt.Println("7516")
 	test7516()
+	fmt.Println("5656")
 	test5656()
+	fmt.Println("4844_prec")
 	test4844_precompile()
+	fmt.Println("4844")
 	test4844()
 }
 
@@ -335,9 +341,8 @@ func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 		}
 		//nonce = nonce - 2
 		tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), blob, make(types.AccessList, 0))
-		signedTx, _ := types.SignTx(tx.Transaction, types.NewCancunSigner(chainid), sk)
-		tx.Transaction = signedTx
-		rlpData, err = tx.MarshalBinary()
+		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+		rlpData, err = signedTx.MarshalBinary()
 		if err != nil {
 			panic(err)
 		}
