@@ -3,11 +3,13 @@ package txfuzz
 import (
 	"context"
 	"crypto/sha256"
+	"math"
 	"math/big"
 	"math/rand"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/MariusVanDerWijden/FuzzyVM/generator"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -87,13 +89,39 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 // If chainID is not set, we will try to get it from the rpc
 func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	var index int
 	if al {
-		index := rand.Intn(len(alStrategies))
-		return alStrategies[index](conf)
+		index = rand.Intn(len(alStrategies))
 	} else {
-		index := rand.Intn(len(noAlStrategies))
-		return noAlStrategies[index](conf)
+		index = rand.Intn(len(noAlStrategies))
 	}
+
+	// estimation round
+	txref, err := alStrategies[index](conf)
+	if err != nil {
+		return txref, err
+	}
+
+	backend := ethclient.NewClient(rpc)
+	gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
+		From:       sender,
+		To:         txref.To(),
+		Gas:        math.MaxUint16,
+		GasPrice:   txref.GasPrice(),
+		GasFeeCap:  txref.GasFeeCap(),
+		GasTipCap:  txref.GasTipCap(),
+		Value:      txref.Value(),
+		Data:       txref.Data(),
+		AccessList: txref.AccessList(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	conf.gasLimit = gas
+
+	// this works because noAlStrategies ⊂ alStrategies
+	return alStrategies[index](conf)
 }
 
 func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {

@@ -8,8 +8,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -32,7 +34,15 @@ func sendTxWithNonce(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.
 		return nil, err
 	}
 	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewTransaction(nonce, to, value, 500000, gp.Mul(gp, big.NewInt(100)), nil)
+	gas, _ := backend.EstimateGas(context.Background(), ethereum.CallMsg{
+		From:     crypto.PubkeyToAddress(sk.PublicKey),
+		To:       &to,
+		Gas:      math.MaxUint64,
+		GasPrice: gp,
+		Value:    value,
+		Data:     nil,
+	})
+	tx := types.NewTransaction(nonce, to, value, gas, gp.Mul(gp, big.NewInt(100)), nil)
 	signedTx, _ := types.SignTx(tx, types.NewEIP155Signer(chainid), sk)
 	return signedTx, backend.SendTransaction(context.Background(), signedTx)
 }

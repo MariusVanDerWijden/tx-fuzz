@@ -6,8 +6,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -145,6 +147,7 @@ func CreateAddresses(N int) ([]string, []string) {
 func Airdrop(config *Config, value *big.Int) error {
 	backend := ethclient.NewClient(config.backend)
 	sender := crypto.PubkeyToAddress(config.faucet.PublicKey)
+	fmt.Printf("airdrop faucet is at %x\n", sender)
 	var tx *types.Transaction
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
@@ -159,7 +162,15 @@ func Airdrop(config *Config, value *big.Int) error {
 		}
 		to := crypto.PubkeyToAddress(addr.PublicKey)
 		gp, _ := backend.SuggestGasPrice(context.Background())
-		tx2 := types.NewTransaction(nonce, to, value, 21000, gp, nil)
+		gas, _ := backend.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:     crypto.PubkeyToAddress(config.faucet.PublicKey),
+			To:       &to,
+			Gas:      math.MaxInt64,
+			GasPrice: gp,
+			Value:    value,
+			Data:     nil,
+		})
+		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)
 		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), config.faucet)
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 			fmt.Printf("error sending transaction; could not airdrop: %v\n", err)
