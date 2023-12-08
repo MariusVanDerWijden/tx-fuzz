@@ -106,7 +106,7 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
 		From:       sender,
 		To:         txref.To(),
-		Gas:        math.MaxUint16,
+		Gas:        math.MaxUint64,
 		GasPrice:   txref.GasPrice(),
 		GasFeeCap:  txref.GasFeeCap(),
 		GasTipCap:  txref.GasTipCap(),

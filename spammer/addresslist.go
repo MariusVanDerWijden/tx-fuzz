@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -162,7 +163,7 @@ func Airdrop(config *Config, value *big.Int) error {
 		}
 		to := crypto.PubkeyToAddress(addr.PublicKey)
 		gp, _ := backend.SuggestGasPrice(context.Background())
-		gas, _ := backend.EstimateGas(context.Background(), ethereum.CallMsg{
+		gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:     crypto.PubkeyToAddress(config.faucet.PublicKey),
 			To:       &to,
 			Gas:      math.MaxInt64,
@@ -170,6 +171,10 @@ func Airdrop(config *Config, value *big.Int) error {
 			Value:    value,
 			Data:     nil,
 		})
+		if err != nil {
+			log.Error("error estimating gas: %v", err)
+			return err
+		}
 		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)
 		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), config.faucet)
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
