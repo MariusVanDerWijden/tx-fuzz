@@ -18,9 +18,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.20.5
+        go-version: 1.21.5
     - name: Download golangci-lint
       run: wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
     - name: Lint
@@ -34,9 +34,9 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.20.5
+        go-version: 1.21.5
     - name: Test
       run: go test -v ./...
 
