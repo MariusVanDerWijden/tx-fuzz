@@ -46,6 +46,14 @@ type txConf struct {
 }
 
 func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int) *txConf {
+	// defaults
+	gasCost := uint64(100000)
+	to := randomAddress()
+	code := RandomCode(f)
+	value := big.NewInt(0)
+	if len(code) > 128 {
+		code = code[:128]
+	}
 	// Set fields if non-nil
 	if rpc != nil {
 		client := ethclient.NewClient(rpc)
@@ -62,21 +70,29 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 				chainID = big.NewInt(1)
 			}
 		}
+		// Try to estimate gas
+		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:      sender,
+			To:        &to,
+			Gas:       math.MaxUint64,
+			GasPrice:  gasPrice,
+			GasFeeCap: gasPrice,
+			GasTipCap: gasPrice,
+			Value:     value,
+			Data:      code,
+		})
+		if err == nil {
+			gasCost = gas
+		}
 	}
-	gas := uint64(100000)
-	to := randomAddress()
-	code := RandomCode(f)
-	value := big.NewInt(0)
-	if len(code) > 128 {
-		code = code[:128]
-	}
+
 	return &txConf{
 		rpc:      rpc,
 		nonce:    nonce,
 		sender:   sender,
 		to:       &to,
 		value:    value,
-		gasLimit: gas,
+		gasLimit: gasCost,
 		gasPrice: gasPrice,
 		chainID:  chainID,
 		code:     code,
@@ -92,36 +108,11 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 	var index int
 	if al {
 		index = rand.Intn(len(alStrategies))
+		return alStrategies[index](conf)
 	} else {
 		index = rand.Intn(len(noAlStrategies))
+		return noAlStrategies[index](conf)
 	}
-
-	// estimation round
-	txref, err := alStrategies[index](conf)
-	if err != nil {
-		return txref, err
-	}
-
-	backend := ethclient.NewClient(rpc)
-	gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
-		From:       sender,
-		To:         txref.To(),
-		Gas:        math.MaxUint64,
-		GasPrice:   txref.GasPrice(),
-		GasFeeCap:  txref.GasFeeCap(),
-		GasTipCap:  txref.GasTipCap(),
-		Value:      txref.Value(),
-		Data:       txref.Data(),
-		AccessList: txref.AccessList(),
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	conf.gasLimit = gas
-
-	// this works because noAlStrategies ⊂ alStrategies
-	return alStrategies[index](conf)
 }
 
 func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
