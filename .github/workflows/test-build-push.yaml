@@ -42,6 +42,7 @@ jobs:
 
   build-push:
     name: build-push
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout this repo
