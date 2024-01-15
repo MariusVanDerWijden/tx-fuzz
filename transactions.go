@@ -3,11 +3,13 @@ package txfuzz
 import (
 	"context"
 	"crypto/sha256"
+	"math"
 	"math/big"
 	"math/rand"
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/MariusVanDerWijden/FuzzyVM/generator"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
@@ -44,6 +46,14 @@ type txConf struct {
 }
 
 func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int) *txConf {
+	// defaults
+	gasCost := uint64(100000)
+	to := randomAddress()
+	code := RandomCode(f)
+	value := big.NewInt(0)
+	if len(code) > 128 {
+		code = code[:128]
+	}
 	// Set fields if non-nil
 	if rpc != nil {
 		client := ethclient.NewClient(rpc)
@@ -60,21 +70,29 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 				chainID = big.NewInt(1)
 			}
 		}
+		// Try to estimate gas
+		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:      sender,
+			To:        &to,
+			Gas:       math.MaxUint64,
+			GasPrice:  gasPrice,
+			GasFeeCap: gasPrice,
+			GasTipCap: gasPrice,
+			Value:     value,
+			Data:      code,
+		})
+		if err == nil {
+			gasCost = gas
+		}
 	}
-	gas := uint64(100000)
-	to := randomAddress()
-	code := RandomCode(f)
-	value := big.NewInt(0)
-	if len(code) > 128 {
-		code = code[:128]
-	}
+
 	return &txConf{
 		rpc:      rpc,
 		nonce:    nonce,
 		sender:   sender,
 		to:       &to,
 		value:    value,
-		gasLimit: gas,
+		gasLimit: gasCost,
 		gasPrice: gasPrice,
 		chainID:  chainID,
 		code:     code,
@@ -87,11 +105,12 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 // If chainID is not set, we will try to get it from the rpc
 func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	var index int
 	if al {
-		index := rand.Intn(len(alStrategies))
+		index = rand.Intn(len(alStrategies))
 		return alStrategies[index](conf)
 	} else {
-		index := rand.Intn(len(noAlStrategies))
+		index = rand.Intn(len(noAlStrategies))
 		return noAlStrategies[index](conf)
 	}
 }
