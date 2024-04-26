@@ -28,6 +28,7 @@ type Config struct {
 	corpus     [][]byte            // optional corpus to use elements from
 	accessList bool                // whether to create accesslist transactions
 	gasLimit   uint64              // gas limit per transaction
+	SlotTime   uint64              // slot time in seconds
 
 	seed int64            // seed used for generating randomness
 	mut  *mutator.Mutator // Mutator based on the seed
@@ -99,6 +100,8 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		}
 	}
 
+	slotTime := c.Uint64(flags.SlotTimeFlag.Name)
+
 	// Setup seed
 	seed := c.Int64(flags.SeedFlag.Name)
 	if seed == 0 {
@@ -130,6 +133,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		keys:       keys,
 		corpus:     corpus,
 		mut:        mut,
+		SlotTime:   slotTime,
 	}, nil
 }
 
