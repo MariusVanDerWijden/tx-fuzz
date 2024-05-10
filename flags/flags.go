@@ -50,6 +50,12 @@ var (
 		Value: 100_000,
 	}
 
+	SlotTimeFlag = &cli.IntFlag{
+		Name:  "slot-time",
+		Usage: "Slot time in seconds",
+		Value: 12,
+	}
+
 	SpamFlags = []cli.Flag{
 		SkFlag,
 		SeedFlag,
@@ -59,5 +65,6 @@ var (
 		TxCountFlag,
 		CountFlag,
 		GasLimitFlag,
+		SlotTimeFlag,
 	}
 )

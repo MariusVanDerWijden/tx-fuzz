@@ -96,7 +96,7 @@ func spam(config *spammer.Config, spamFn spammer.Spam, airdropValue *big.Int) er
 			return err
 		}
 		spammer.SpamTransactions(config, spamFn)
-		time.Sleep(12 * time.Second)
+		time.Sleep(time.Duration(config.SlotTime) * time.Second)
 	}
 }
 
