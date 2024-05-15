@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto/kzg4844"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/holiman/uint256"
@@ -61,12 +62,14 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 		if gasPrice == nil {
 			gasPrice, err = client.SuggestGasPrice(context.Background())
 			if err != nil {
+				log.Warn("Error suggesting gas price: %v", err)
 				gasPrice = big.NewInt(1)
 			}
 		}
 		if chainID == nil {
 			chainID, err = client.ChainID(context.Background())
 			if err != nil {
+				log.Warn("Error fetching chain id: %v", err)
 				chainID = big.NewInt(1)
 			}
 		}
@@ -82,6 +85,7 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 			Data:      code,
 		})
 		if err == nil {
+			log.Warn("Error estimating gas: %v", err)
 			gasCost = gas
 		}
 	}
