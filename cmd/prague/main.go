@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var (
@@ -12,6 +13,26 @@ var (
 
 func main() {
 	test2537()
+}
+
+func testTouchContracts() {
+	// touch beacon root addr
+	addresses := []common.Address{
+		common.HexToAddress("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"), // beacon roots
+		common.HexToAddress("0x00A3ca265EBcb825B45F985A16CEFB49958cE017"), // withdrawal requests
+		common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe"), // system address
+		common.HexToAddress("0x25a219378dad9b3503c8268c9ca836a52427a4fb"), // history storage address
+		common.HexToAddress("0x00000000219ab540356cbb839cbe05303d7705fa"), // mainnet deposit contract
+		common.HexToAddress("0x4242424242424242424242424242424242424242"), // testnet deposit address
+	}
+
+	for _, addr := range addresses {
+		exec(addr, []byte{}, false)                       // no data
+		exec(addr, []byte{1}, false)                      // 1 byte of data
+		exec(addr, crypto.Keccak256([]byte{1})[:], false) // 32 bytes of data
+		exec(addr, make([]byte, 2048), false)             // 2048 bytes of data
+	}
+
 }
 
 func test2537() {
