@@ -12,6 +12,7 @@ var (
 )
 
 func main() {
+	testTouchContracts()
 	test2537()
 }
 
@@ -32,7 +33,6 @@ func testTouchContracts() {
 		exec(addr, crypto.Keccak256([]byte{1})[:], false) // 32 bytes of data
 		exec(addr, make([]byte, 2048), false)             // 2048 bytes of data
 	}
-
 }
 
 func test2537() {
