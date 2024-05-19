@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	address = "http://127.0.0.1:8545"
+	address = "https://rpc.pectra-devnet-0.ethpandaops.io/"
 )
 
 func main() {
@@ -232,7 +232,7 @@ func test4844_precompile() {
 	}
 }
 
-func precompileParamsToBytes(commitment kzg4844.Commitment, claim kzg4844.Claim, proof kzg4844.Proof, point kzg4844.Point) []byte {
+func precompileParamsToBytes(commitment *kzg4844.Commitment, claim *kzg4844.Claim, proof *kzg4844.Proof, point *kzg4844.Point) []byte {
 	bytes := make([]byte, 192)
 	versionedHash := kZGToVersionedHash(commitment)
 	copy(bytes[0:32], versionedHash[:])
@@ -243,22 +243,22 @@ func precompileParamsToBytes(commitment kzg4844.Commitment, claim kzg4844.Claim,
 	return bytes
 }
 
-func createPrecompileRandParams() (kzg4844.Commitment, kzg4844.Claim, kzg4844.Proof, kzg4844.Point, error) {
+func createPrecompileRandParams() (*kzg4844.Commitment, *kzg4844.Claim, *kzg4844.Proof, *kzg4844.Point, error) {
 	random := make([]byte, 131072)
 	rand.Read(random[:])
 	blob := encodeBlobs(random)[0]
-	commitment, err := kzg4844.BlobToCommitment(blob)
+	commitment, err := kzg4844.BlobToCommitment(&blob)
 	if err != nil {
-		return kzg4844.Commitment{}, kzg4844.Claim{}, kzg4844.Proof{}, kzg4844.Point{}, err
+		return nil, nil, nil, nil, err
 	}
 	var point kzg4844.Point
 	rand.Read(point[:])
 	point[0] = 0 // point needs to be < modulus
-	proof, claim, err := kzg4844.ComputeProof(blob, point)
+	proof, claim, err := kzg4844.ComputeProof(&blob, point)
 	if err != nil {
-		return kzg4844.Commitment{}, kzg4844.Claim{}, kzg4844.Proof{}, kzg4844.Point{}, err
+		return nil, nil, nil, nil, err
 	}
-	return commitment, claim, proof, point, nil
+	return &commitment, &claim, &proof, &point, nil
 }
 
 func encodeBlobs(data []byte) []kzg4844.Blob {
@@ -282,7 +282,7 @@ func encodeBlobs(data []byte) []kzg4844.Blob {
 }
 
 // kZGToVersionedHash implements kzg_to_versioned_hash from EIP-4844
-func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
+func kZGToVersionedHash(kzg *kzg4844.Commitment) common.Hash {
 	h := sha256.Sum256(kzg[:])
 	h[0] = 0x01
 

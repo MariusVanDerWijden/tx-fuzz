@@ -45,13 +45,14 @@ func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 	}
 	var rlpData []byte
 	var _tx *types.Transaction
+	gasLimit := uint64(30_000_000)
 	if blobs {
 		blob, err := randomBlobData()
 		if err != nil {
 			panic(err)
 		}
 		//nonce = nonce - 2
-		tx := txfuzz.New4844Tx(nonce, &addr, 500000, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), blob, make(types.AccessList, 0))
+		tx := txfuzz.New4844Tx(nonce, &addr, gasLimit, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), blob, make(types.AccessList, 0))
 		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
 		rlpData, err = signedTx.MarshalBinary()
 		if err != nil {
@@ -59,7 +60,7 @@ func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 		}
 		_tx = signedTx
 	} else {
-		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: tip, GasFeeCap: gp, Gas: 500000, To: &addr, Data: data})
+		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: tip, GasFeeCap: gp, Gas: gasLimit, To: &addr, Data: data})
 		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
 		rlpData, err = signedTx.MarshalBinary()
 		if err != nil {
