@@ -1,4 +1,4 @@
-package main
+package helper
 
 import (
 	"context"
@@ -21,8 +21,8 @@ const (
 	maxDataPerBlob = 1 << 17 // 128Kb
 )
 
-func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
-	cl, sk := getRealBackend()
+func Exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
+	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
@@ -47,7 +47,7 @@ func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 	var _tx *types.Transaction
 	gasLimit := uint64(30_000_000)
 	if blobs {
-		blob, err := randomBlobData()
+		blob, err := RandomBlobData()
 		if err != nil {
 			panic(err)
 		}
@@ -75,28 +75,28 @@ func exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 	return _tx
 }
 
-func getRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
+func GetRealBackend() (*rpc.Client, *ecdsa.PrivateKey) {
 	// eth.sendTransaction({from:personal.listAccounts[0], to:"0xb02A2EdA1b317FBd16760128836B0Ac59B560e9D", value: "100000000000000"})
 
 	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
 	if crypto.PubkeyToAddress(sk.PublicKey).Hex() != txfuzz.ADDR {
 		panic(fmt.Sprintf("wrong address want %s got %s", crypto.PubkeyToAddress(sk.PublicKey).Hex(), txfuzz.ADDR))
 	}
-	cl, err := rpc.Dial(address)
+	cl, err := rpc.Dial(txfuzz.RPC)
 	if err != nil {
 		panic(err)
 	}
 	return cl, sk
 }
 
-func wait(tx *types.Transaction) {
-	client, _ := getRealBackend()
+func Wait(tx *types.Transaction) {
+	client, _ := GetRealBackend()
 	backend := ethclient.NewClient(client)
 	bind.WaitMined(context.Background(), backend, tx)
 }
 
-func deploy(bytecode string) (common.Address, error) {
-	cl, sk := getRealBackend()
+func Deploy(bytecode string) (common.Address, error) {
+	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
@@ -117,8 +117,8 @@ func deploy(bytecode string) (common.Address, error) {
 	return bind.WaitDeployed(context.Background(), backend, signedTx)
 }
 
-func execute(data []byte, gaslimit uint64) {
-	cl, sk := getRealBackend()
+func Execute(data []byte, gaslimit uint64) {
+	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
@@ -136,7 +136,7 @@ func execute(data []byte, gaslimit uint64) {
 	backend.SendTransaction(context.Background(), signedTx)
 }
 
-func randomBlobData() ([]byte, error) {
+func RandomBlobData() ([]byte, error) {
 	val, err := rand.Int(rand.Reader, big.NewInt(maxDataPerBlob))
 	if err != nil {
 		return nil, err

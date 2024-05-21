@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/MariusVanDerWijden/tx-fuzz/helper"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-)
-
-var (
-	address = "https://rpc.pectra-devnet-0.ethpandaops.io/"
 )
 
 func main() {
@@ -31,22 +29,22 @@ func testTouchContracts() {
 	}
 
 	for _, addr := range addresses {
-		exec(addr, []byte{}, false)                       // no data
-		exec(addr, []byte{1}, false)                      // 1 byte of data
-		exec(addr, crypto.Keccak256([]byte{1})[:], false) // 32 bytes of data
-		exec(addr, make([]byte, 20), false)
-		exec(addr, make([]byte, 2048), false) // 2048 bytes of data
+		helper.Exec(addr, []byte{}, false)                       // no data
+		helper.Exec(addr, []byte{1}, false)                      // 1 byte of data
+		helper.Exec(addr, crypto.Keccak256([]byte{1})[:], false) // 32 bytes of data
+		helper.Exec(addr, make([]byte, 20), false)
+		helper.Exec(addr, make([]byte, 2048), false) // 2048 bytes of data
 	}
 }
 
 func test3074() {
 	// auth
-	execute([]byte{0x5f, 0x5f, 0x5f, 0xf6, 0x80, 0x55}, 200000)
-	execute([]byte{0x64, 0xff, 0xff, 0xff, 0xff, 0x64, 0xff, 0xff, 0xff, 0xff, 0x64, 0xff, 0xff, 0xff, 0xff, 0xf6, 0x80, 0x55}, 200000)
+	helper.Execute([]byte{0x5f, 0x5f, 0x5f, 0xf6, 0x80, 0x55}, 200000)
+	helper.Execute([]byte{0x64, 0xff, 0xff, 0xff, 0xff, 0x64, 0xff, 0xff, 0xff, 0xff, 0x64, 0xff, 0xff, 0xff, 0xff, 0xf6, 0x80, 0x55}, 200000)
 	// authcall
-	execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0xf7, 0x80, 0x55}, 200000)
-	execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
-	execute([]byte{0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
+	helper.Execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0xf7, 0x80, 0x55}, 200000)
+	helper.Execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
+	helper.Execute([]byte{0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
 	time.Sleep(time.Minute)
 	fmt.Println("Execution tests")
 	vectors := [][]byte{
@@ -57,7 +55,7 @@ func test3074() {
 		common.FromHex("0x01f2f89f718c81bfdac9f08fc1cd6b91de657519f87ba41bcd6393a95833a55ef2616a0a70c31ec6801a9ab304dda6d14a67d0897f588b15bf73d99371b9db44fa0000000000000000000000000000000000000000000000000000000000000001aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 	}
 	for _, vec := range vectors {
-		execute(vec, 300000)
+		helper.Execute(vec, 300000)
 	}
 }
 
@@ -89,7 +87,6 @@ func test2537() {
 			testBLS(i, vec)
 		}
 	}
-
 }
 
 func test2537Long() {
@@ -109,7 +106,7 @@ func testLongBLS(prec int, input []byte) {
 	}
 	base := input
 	for i := 0; i < 20; i++ {
-		exec(addr, base, false)
+		helper.Exec(addr, base, false)
 		base = append(base, base...)
 	}
 }
@@ -119,7 +116,7 @@ func testBLS(prec int, input []byte) {
 	if err != nil {
 		panic(err)
 	}
-	exec(addr, input, false)
+	helper.Exec(addr, input, false)
 }
 
 /*
@@ -143,5 +140,5 @@ func deployPrecompileCaller(precompile string) (common.Address, error) {
 	bytecode1 := "6080604052348015600e575f80fd5b506104568061001c5f395ff3fe608060405234801561000f575f80fd5b505f3660605f60"
 	bytecode2 := "90505f808273ffffffffffffffffffffffffffffffffffffffff1661c35087876040516100459291906100fe565b5f604051808303815f8787f1925050503d805f811461007f576040519150601f19603f3d011682016040523d82523d5f602084013e610084565b606091505b5091509150809350815f806101000a81548160ff02191690831515021790555080600190816100b39190610350565b50505050915050805190602001f35b5f81905092915050565b828183375f83830152505050565b5f6100e583856100c2565b93506100f28385846100cc565b82840190509392505050565b5f61010a8284866100da565b91508190509392505050565b5f81519050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602260045260245ffd5b5f600282049050600182168061019157607f821691505b6020821081036101a4576101a361014d565b5b50919050565b5f819050815f5260205f209050919050565b5f6020601f8301049050919050565b5f82821b905092915050565b5f600883026102067fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff826101cb565b61021086836101cb565b95508019841693508086168417925050509392505050565b5f819050919050565b5f819050919050565b5f61025461024f61024a84610228565b610231565b610228565b9050919050565b5f819050919050565b61026d8361023a565b6102816102798261025b565b8484546101d7565b825550505050565b5f90565b610295610289565b6102a0818484610264565b505050565b5b818110156102c3576102b85f8261028d565b6001810190506102a6565b5050565b601f821115610308576102d9816101aa565b6102e2846101bc565b810160208510156102f1578190505b6103056102fd856101bc565b8301826102a5565b50505b505050565b5f82821c905092915050565b5f6103285f198460080261030d565b1980831691505092915050565b5f6103408383610319565b9150826002028217905092915050565b61035982610116565b67ffffffffffffffff81111561037257610371610120565b5b61037c825461017a565b6103878282856102c7565b5f60209050601f8311600181146103b8575f84156103a6578287015190505b6103b08582610335565b865550610417565b601f1984166103c6866101aa565b5f5b828110156103ed578489015182556001820191506020850194506020810190506103c8565b8683101561040a5784890151610406601f891682610319565b8355505b6001600288020188555050505b50505050505056fea2646970667358221220bc28435cfa3208db8cae33e216a1ff54a6e5dce073695cad36274cc363055c5564736f6c63430008190033"
 	// The byte in between bytecode1 and bytecode2 denotes the precompile which we want to call
-	return deploy(fmt.Sprintf("%v%v%v", bytecode1, precompile, bytecode2))
+	return helper.Deploy(fmt.Sprintf("%v%v%v", bytecode1, precompile, bytecode2))
 }
