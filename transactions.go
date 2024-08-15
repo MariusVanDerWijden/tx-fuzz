@@ -128,6 +128,16 @@ func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	}
 }
 
+func RandomBlobTxWithCode(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, code []byte) (*types.Transaction, error) {
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	conf.code = code
+	if al {
+		return fullAlBlobTx(conf)
+	} else {
+		return emptyAlBlobTx(conf)
+	}
+}
+
 type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
 
 var noAlStrategies = []txCreationStrategy{
