@@ -135,7 +135,7 @@ func runBasicBlobSpam(c *cli.Context) error {
 	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.N)*1000000)), big.NewInt(params.GWei))
 	airdropValue = airdropValue.Mul(airdropValue, big.NewInt(100))
 	config.Basic = true
-	return spam(config, spammer.SendBlobTransactions, airdropValue)
+	return spam(config, spammer.SendBasicBlobTransactions, airdropValue)
 }
 
 func runCreate(c *cli.Context) error {
