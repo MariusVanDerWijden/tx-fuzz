@@ -128,6 +128,24 @@ func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	}
 }
 
+func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, aList types.AuthorizationList) (*types.Transaction, error) {
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	var list *types.AccessList
+	if al {
+		var err error
+		list, err = CreateAccessList(conf.rpc, tx, conf.sender)
+		if err != nil {
+			return nil, err
+		}
+	}
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	return New7702Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), *list, aList), nil
+}
+
 type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
 
 var noAlStrategies = []txCreationStrategy{
@@ -382,4 +400,21 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
 	h[0] = blobCommitmentVersionKZG
 
 	return h
+}
+
+func New7702Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
+	return types.NewTx(
+		&types.SetCodeTx{
+			ChainID:    uint256.MustFromBig(chainID),
+			Nonce:      nonce,
+			To:         to,
+			GasTipCap:  uint256.MustFromBig(tip),
+			GasFeeCap:  uint256.MustFromBig(feeCap),
+			Gas:        gasLimit,
+			Value:      uint256.MustFromBig(value),
+			Data:       code,
+			AuthList:   auth,
+			AccessList: al,
+		},
+	)
 }
