@@ -30,6 +30,8 @@ type Config struct {
 	gasLimit   uint64              // gas limit per transaction
 	SlotTime   uint64              // slot time in seconds
 
+	Basic bool // send blob transactions without fuzzed code
+
 	seed int64            // seed used for generating randomness
 	mut  *mutator.Mutator // Mutator based on the seed
 }

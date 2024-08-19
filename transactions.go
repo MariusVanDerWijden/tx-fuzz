@@ -75,14 +75,12 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 		}
 		// Try to estimate gas
 		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
-			From:      sender,
-			To:        &to,
-			Gas:       math.MaxUint64,
-			GasPrice:  gasPrice,
-			GasFeeCap: gasPrice,
-			GasTipCap: gasPrice,
-			Value:     value,
-			Data:      code,
+			From:     sender,
+			To:       &to,
+			Gas:      math.MaxUint64,
+			GasPrice: gasPrice,
+			Value:    value,
+			Data:     code,
 		})
 		if err == nil {
 			log.Warn("Error estimating gas: %v", err)
@@ -121,6 +119,17 @@ func RandomValidTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, non
 
 func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	if al {
+		return fullAlBlobTx(conf)
+	} else {
+		return emptyAlBlobTx(conf)
+	}
+}
+
+func RandomBlobTxWithCode(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, code []byte, contract *common.Address) (*types.Transaction, error) {
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	conf.code = code
+	conf.to = contract
 	if al {
 		return fullAlBlobTx(conf)
 	} else {
