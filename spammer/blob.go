@@ -41,6 +41,7 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 
 		signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), key)
 		if err != nil {
+			log.Warn("Could not sign tx: %v", err)
 			return err
 		}
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {

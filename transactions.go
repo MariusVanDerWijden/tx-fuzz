@@ -75,14 +75,12 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 		}
 		// Try to estimate gas
 		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
-			From:      sender,
-			To:        &to,
-			Gas:       math.MaxUint64,
-			GasPrice:  gasPrice,
-			GasFeeCap: gasPrice,
-			GasTipCap: gasPrice,
-			Value:     value,
-			Data:      code,
+			From:     sender,
+			To:       &to,
+			Gas:      math.MaxUint64,
+			GasPrice: gasPrice,
+			Value:    value,
+			Data:     code,
 		})
 		if err == nil {
 			log.Warn("Error estimating gas: %v", err)
