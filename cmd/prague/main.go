@@ -22,6 +22,7 @@ func main() {
 	test3074()
 	test7002()
 	test7251()
+	test7702()
 }
 
 func testTouchContracts() {
@@ -226,4 +227,37 @@ func makeTxWithValue(addr common.Address, value *big.Int, data []byte) *types.Tr
 		To:        &addr,
 		Data:      data,
 	})
+}
+
+func test7702() {
+	// authenticate self
+	selfAddr := common.HexToAddress(txfuzz.ADDR)
+	unsigned := &types.Authorization{
+		ChainID: helper.ChainID(),
+		Address: selfAddr,
+		Nonce:   []uint64{helper.Nonce(selfAddr)},
+	}
+	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
+	self, _ := types.SignAuth(unsigned, sk)
+	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{self})
+	// authenticate self twice
+	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{self, self})
+	// authenticate self twice with different nonces
+	self2 := *self
+	self2.Nonce = []uint64{helper.Nonce(selfAddr) + 1}
+	self2P, _ := types.SignAuth(&self2, sk)
+	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{self, self2P})
+	// unsigned authorization
+	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{unsigned})
+	// many authorizations
+	var list types.AuthorizationList
+	for i := 0; i < 1024; i++ {
+		list = append(list, self)
+	}
+	helper.ExecAuth(selfAddr, []byte{}, &list)
+	// too many authorizations
+	for i := 0; i < 1024*1023; i++ {
+		list = append(list, self)
+	}
+	helper.ExecAuth(selfAddr, []byte{}, &list)
 }
