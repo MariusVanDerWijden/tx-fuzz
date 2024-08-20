@@ -34,7 +34,7 @@ var (
 
 	RpcFlag = &cli.StringFlag{
 		Name:  "rpc",
-		Usage: "RPC provider",
+		Usage: "comma separated list of RPC providers",
 		Value: "http://127.0.0.1:8545",
 	}
 

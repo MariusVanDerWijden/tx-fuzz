@@ -76,7 +76,7 @@ func Unstuck(config *Config) error {
 
 func tryUnstuck(config *Config, sk *ecdsa.PrivateKey) error {
 	var (
-		client = ethclient.NewClient(config.backend)
+		client = ethclient.NewClient(config.backends[0])
 		addr   = crypto.PubkeyToAddress(sk.PublicKey)
 	)
 	for i := 0; i < 100; i++ {
@@ -108,7 +108,7 @@ func tryUnstuck(config *Config, sk *ecdsa.PrivateKey) error {
 }
 
 func isStuck(config *Config, account common.Address) (uint64, error) {
-	client := ethclient.NewClient(config.backend)
+	client := ethclient.NewClient(config.backends[0])
 	nonce, err := client.NonceAt(context.Background(), account, nil)
 	if err != nil {
 		return 0, err

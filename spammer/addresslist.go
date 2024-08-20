@@ -146,7 +146,7 @@ func CreateAddresses(N int) ([]string, []string) {
 }
 
 func Airdrop(config *Config, value *big.Int) error {
-	backend := ethclient.NewClient(config.backend)
+	backend := ethclient.NewClient(config.backends[0])
 	sender := crypto.PubkeyToAddress(config.faucet.PublicKey)
 	fmt.Printf("Airdrop faucet is at %x\n", sender)
 	var tx *types.Transaction

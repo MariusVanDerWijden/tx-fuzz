@@ -17,7 +17,7 @@ import (
 )
 
 func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Filler) error {
-	backend := ethclient.NewClient(config.backend)
+	backend := ethclient.NewClient(config.backends[0])
 	sender := crypto.PubkeyToAddress(key.PublicKey)
 	chainID, err := backend.ChainID(context.Background())
 	if err != nil {
@@ -31,7 +31,7 @@ func SendBlobTransactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 		if err != nil {
 			return err
 		}
-		tx, err := txfuzz.RandomBlobTx(config.backend, f, sender, nonce, nil, nil, config.accessList)
+		tx, err := txfuzz.RandomBlobTx(config.backends[0], f, sender, nonce, nil, nil, config.accessList)
 		if err != nil {
 			log.Warn("Could not create valid tx: %v", nonce)
 			return err

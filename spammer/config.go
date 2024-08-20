@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/MariusVanDerWijden/tx-fuzz/flags"
@@ -20,7 +21,7 @@ import (
 )
 
 type Config struct {
-	backend *rpc.Client // connection to the rpc provider
+	backends []*rpc.Client // connection to the rpc provider
 
 	N          uint64              // number of transactions send per account
 	faucet     *ecdsa.PrivateKey   // private key of the faucet account
@@ -36,7 +37,7 @@ type Config struct {
 
 func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand) (*Config, error) {
 	// Setup RPC
-	backend, err := rpc.Dial(rpcAddr)
+	backend, err := setupBackends(rpcAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 	}
 
 	return &Config{
-		backend:    backend,
+		backends:   backend,
 		N:          N,
 		faucet:     crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK)),
 		keys:       keys,
@@ -62,8 +63,7 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 
 func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup RPC
-	rpcAddr := c.String(flags.RpcFlag.Name)
-	backend, err := rpc.Dial(rpcAddr)
+	backends, err := setupBackends(c.String(flags.RpcFlag.Name))
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup N
 	N := c.Int(flags.TxCountFlag.Name)
 	if N == 0 {
-		N, err = setupN(backend, len(keys), gasLimit)
+		N, err = setupN(backends[0], len(keys), gasLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +124,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		backend:    backend,
+		backends:   backends,
 		N:          uint64(N),
 		faucet:     faucet,
 		accessList: !c.Bool(flags.NoALFlag.Name),
@@ -135,6 +135,25 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		mut:        mut,
 		SlotTime:   slotTime,
 	}, nil
+}
+
+func setupBackends(rpcAddrs string) ([]*rpc.Client, error) {
+	addrs := strings.Split(rpcAddrs, ",")
+
+	if len(addrs) == 0 {
+		return nil, fmt.Errorf("No rpc addresses provided")
+	}
+
+	backends := make([]*rpc.Client, len(addrs))
+	for _, addr := range addrs {
+		backend, err := rpc.Dial(addr)
+		if err != nil {
+			return nil, err
+		}
+		backends = append(backends, backend)
+	}
+	return backends, nil
+
 }
 
 func setupN(backend *rpc.Client, keys int, gasLimit int) (int, error) {
