@@ -55,7 +55,7 @@ func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 			log.Warn("Could not create valid tx: %v", nonce)
 			return err
 		}
-		signedTx, err := types.SignTx(tx, types.NewCancunSigner(chainID), key)
+		signedTx, err := types.SignTx(tx, types.NewPragueSigner(chainID), key)
 		if err != nil {
 			return err
 		}
