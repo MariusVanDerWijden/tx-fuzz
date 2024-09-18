@@ -42,7 +42,7 @@ func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 		auth := &types.Authorization{
 			ChainID: chainID,
 			Address: sender,
-			Nonce:   []uint64{nonceAuth},
+			Nonce:   nonceAuth,
 		}
 
 		auth, err = types.SignAuth(auth, authorizer)
