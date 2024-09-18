@@ -131,13 +131,13 @@ func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, aList types.AuthorizationList) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
 	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
-	var list *types.AccessList
+	var list types.AccessList
 	if al {
-		var err error
-		list, err = CreateAccessList(conf.rpc, tx, conf.sender)
+		l, err := CreateAccessList(conf.rpc, tx, conf.sender)
 		if err != nil {
 			return nil, err
 		}
+		list = *l
 	}
 	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
 	if err != nil {
@@ -146,7 +146,7 @@ func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	if rand.Int()%2 == 0 {
 		conf.to = nil // create a contract half of the time
 	}
-	return New7702Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), *list, aList), nil
+	return New7702Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), list, aList), nil
 }
 
 type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
