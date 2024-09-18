@@ -69,7 +69,7 @@ func randomAuthEntry(f *filler.Filler) *types.Authorization {
 	return &types.Authorization{
 		ChainID: f.MemInt(),
 		Address: randomAddress(),
-		Nonce:   []uint64{f.Uint64()},
+		Nonce:   f.Uint64(),
 	}
 }
 

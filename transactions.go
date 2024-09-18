@@ -143,10 +143,7 @@ func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	if err != nil {
 		return nil, err
 	}
-	if rand.Int()%2 == 0 {
-		conf.to = nil // create a contract half of the time
-	}
-	return New7702Tx(conf.nonce, conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), list, aList), nil
+	return New7702Tx(conf.nonce, *conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), list, aList), nil
 }
 
 type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
@@ -405,7 +402,7 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
 	return h
 }
 
-func New7702Tx(nonce uint64, to *common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
+func New7702Tx(nonce uint64, to common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
 	return types.NewTx(
 		&types.SetCodeTx{
 			ChainID:    uint256.MustFromBig(chainID),
