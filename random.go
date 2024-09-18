@@ -9,6 +9,7 @@ import (
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -25,7 +26,7 @@ func randomHash() common.Hash {
 }
 
 func randomAddress() common.Address {
-	switch mathRand.Int31n(5) {
+	switch mathRand.Int31n(8) {
 	case 0, 1, 2:
 		b := make([]byte, 20)
 		_, err := rand.Read(b)
@@ -37,6 +38,16 @@ func randomAddress() common.Address {
 		return common.Address{}
 	case 4:
 		return common.HexToAddress(ADDR)
+	case 5:
+		return params.BeaconRootsAddress
+	case 6:
+		return params.WithdrawalRequestsAddress
+	case 7:
+		return params.ConsolidationRequestsAddress
+	case 8:
+		return params.SystemAddress
+	case 9:
+		return params.HistoryStorageAddress
 	}
 	return common.Address{}
 }
