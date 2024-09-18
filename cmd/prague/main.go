@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math/big"
-	"time"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/MariusVanDerWijden/tx-fuzz/helper"
@@ -13,16 +14,23 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 func main() {
-	testTouchContracts()
-	test2537()
-	test2537Long()
-	test3074()
+	fmt.Println("Touching contracts")
+	//testTouchContracts()
+	fmt.Println("2537")
+	//test2537()
+	fmt.Println("2537")
+	//test2537Long()
+	fmt.Println("3074")
+	//test3074()
+	fmt.Println("7702")
+	//test7702()
+	fmt.Println("2935")
+	test2935()
 	test7002()
-	test7251()
-	test7702()
 }
 
 func testTouchContracts() {
@@ -54,7 +62,6 @@ func test3074() {
 	helper.Execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0xf7, 0x80, 0x55}, 200000)
 	helper.Execute([]byte{0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
 	helper.Execute([]byte{0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x64, 0xff, 0xff, 0xff, 0xff, 0x5f, 0x5f, 0x5f, 0x5a, 0xf7, 0x80, 0x55}, 200000)
-	time.Sleep(time.Minute)
 	fmt.Println("Execution tests")
 	vectors := [][]byte{
 		common.FromHex("000f6617e03f2800b69a0b018d3062535ec761c6648a4c73be71f97885e28505f67f0d4ee582093960a99757587fe74e6ec173477c4ca05310e25158152ff99d4f0000000000000000000000000000000000000000000000000000000000000001"),
@@ -235,7 +242,7 @@ func test7702() {
 	unsigned := &types.Authorization{
 		ChainID: helper.ChainID(),
 		Address: selfAddr,
-		Nonce:   []uint64{helper.Nonce(selfAddr)},
+		Nonce:   helper.Nonce(selfAddr),
 	}
 	sk := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
 	self, _ := types.SignAuth(unsigned, sk)
@@ -244,7 +251,7 @@ func test7702() {
 	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{self, self})
 	// authenticate self twice with different nonces
 	self2 := *self
-	self2.Nonce = []uint64{helper.Nonce(selfAddr) + 1}
+	self2.Nonce = helper.Nonce(selfAddr) + 1
 	self2P, _ := types.SignAuth(&self2, sk)
 	helper.ExecAuth(selfAddr, []byte{}, &types.AuthorizationList{self, self2P})
 	// unsigned authorization
@@ -260,4 +267,74 @@ func test7702() {
 		list = append(list, self)
 	}
 	helper.ExecAuth(selfAddr, []byte{}, &list)
+}
+
+func test2935() {
+	contr, err := deploy2935Caller()
+	if err != nil {
+		panic(err)
+	}
+	addresses := []common.Address{
+		contr,
+		params.HistoryStorageAddress,
+	}
+
+	cl, _ := helper.GetRealBackend()
+
+	for _, addr := range addresses {
+		// empty bytes
+		helper.Exec(addr, []byte{}, false)
+		// 32 bytes random
+		var randomBytes [32]byte
+		rand.Read(randomBytes[:])
+		helper.Exec(addr, randomBytes[:], false)
+		// 33 bytes
+		var bigBytes [33]byte
+		rand.Read(bigBytes[:])
+		helper.Exec(addr, bigBytes[:], false)
+		// 32 bytes 0
+		var zeroBytes [32]byte
+		helper.Exec(addr, zeroBytes[:], false)
+		// 1
+		helper.Exec(addr, []byte{1}, false)
+		// block number specifics
+		client := ethclient.NewClient(cl)
+		currentBlock, err := client.BlockNumber(context.Background())
+		if err != nil {
+			panic(err)
+		}
+		// current block number
+		blocknumbers := []uint64{
+			currentBlock,
+			currentBlock + 1,
+			currentBlock - 1,
+			currentBlock - 8192,
+			currentBlock - 256,
+			currentBlock - 255,
+		}
+		for _, number := range blocknumbers {
+			helper.Exec(addr, binary.BigEndian.AppendUint64([]byte{}, number), false)
+		}
+	}
+}
+
+/*
+pragma solidity >=0.7.0 <0.9.0;
+
+	contract EIP2935Caller {
+	    bool _ok;
+	    bytes out;
+	    fallback (bytes calldata _input) external returns (bytes memory _output) {
+	        address contrAddr = address(0x0AAE40965E6800cD9b1f4b05ff21581047E3F91e);
+	        (bool ok, bytes memory output) = contrAddr.call{gas: 500000}(_input);
+	        _output = output;
+	        // Store return values to trigger sstore
+		    _ok = ok;
+		    out = output;
+	    }
+	}
+*/
+func deploy2935Caller() (common.Address, error) {
+	bytecode1 := "6080604052348015600e575f80fd5b506104698061001c5f395ff3fe608060405234801561000f575f80fd5b505f3660605f730aae40965e6800cd9b1f4b05ff21581047e3f91e90505f808273ffffffffffffffffffffffffffffffffffffffff166207a1208787604051610059929190610112565b5f604051808303815f8787f1925050503d805f8114610093576040519150601f19603f3d011682016040523d82523d5f602084013e610098565b606091505b5091509150809350815f806101000a81548160ff02191690831515021790555080600190816100c79190610364565b50505050915050805190602001f35b5f81905092915050565b828183375f83830152505050565b5f6100f983856100d6565b93506101068385846100e0565b82840190509392505050565b5f61011e8284866100ee565b91508190509392505050565b5f81519050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602260045260245ffd5b5f60028204905060018216806101a557607f821691505b6020821081036101b8576101b7610161565b5b50919050565b5f819050815f5260205f209050919050565b5f6020601f8301049050919050565b5f82821b905092915050565b5f6008830261021a7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff826101df565b61022486836101df565b95508019841693508086168417925050509392505050565b5f819050919050565b5f819050919050565b5f61026861026361025e8461023c565b610245565b61023c565b9050919050565b5f819050919050565b6102818361024e565b61029561028d8261026f565b8484546101eb565b825550505050565b5f90565b6102a961029d565b6102b4818484610278565b505050565b5b818110156102d7576102cc5f826102a1565b6001810190506102ba565b5050565b601f82111561031c576102ed816101be565b6102f6846101d0565b81016020851015610305578190505b610319610311856101d0565b8301826102b9565b50505b505050565b5f82821c905092915050565b5f61033c5f1984600802610321565b1980831691505092915050565b5f610354838361032d565b9150826002028217905092915050565b61036d8261012a565b67ffffffffffffffff81111561038657610385610134565b5b610390825461018e565b61039b8282856102db565b5f60209050601f8311600181146103cc575f84156103ba578287015190505b6103c48582610349565b86555061042b565b601f1984166103da866101be565b5f5b82811015610401578489015182556001820191506020850194506020810190506103dc565b8683101561041e578489015161041a601f89168261032d565b8355505b6001600288020188555050505b50505050505056fea264697066735822122033feaed59f5038b726e0ad09706fc2b959f0781cd00f5b4961c7ce6a676215f764736f6c634300081a0033"
+	return helper.Deploy(bytecode1)
 }
