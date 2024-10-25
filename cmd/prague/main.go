@@ -1,13 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"math/big"
 	"time"
 
+	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/MariusVanDerWijden/tx-fuzz/helper"
-
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func main() {
@@ -15,13 +20,16 @@ func main() {
 	test2537()
 	test2537Long()
 	test3074()
+	test7002()
+	test7251()
 }
 
 func testTouchContracts() {
 	// touch beacon root addr
 	addresses := []common.Address{
 		common.HexToAddress("0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02"), // beacon roots
-		common.HexToAddress("0x00A3ca265EBcb825B45F985A16CEFB49958cE017"), // withdrawal requests
+		common.HexToAddress("0x09Fc772D0857550724b07B850a4323f39112aAaA"), // withdrawal requests
+		common.HexToAddress("0x01aBEa29659e5e97C95107F20bb753cD3e09bBBb"), // consolidation requests
 		common.HexToAddress("0xfffffffffffffffffffffffffffffffffffffffe"), // system address
 		common.HexToAddress("0x25a219378dad9b3503c8268c9ca836a52427a4fb"), // history storage address
 		common.HexToAddress("0x00000000219ab540356cbb839cbe05303d7705fa"), // mainnet deposit contract
@@ -89,6 +97,48 @@ func test2537() {
 	}
 }
 
+// test7002 creates withdrawal requests in the EIP-7002 queue.
+func test7002() {
+	fmt.Println("test7002")
+
+	cl, _ := helper.GetRealBackend()
+	backend := ethclient.NewClient(cl)
+
+	contract := common.HexToAddress("0x09Fc772D0857550724b07B850a4323f39112aAaA")
+	value := big.NewInt(1000000000)
+	inputs := [][]byte{
+		// input data is pubkey(48) || amount(8)
+		common.FromHex("b917cfdc0d25b72d55cf94db328e1629b7f4fde2c30cdacf873b664416f76a0c7f7cc50c9f72a3cb84be88144cde91250000000000000d80"),
+		common.FromHex("b9812f7d0b1f2f969b52bbb2d316b0c2fa7c9dba85c428c5e6c27766bcc4b0c6e874702ff1eb1c7024b08524a977160100000000000f423f"),
+	}
+	for i, data := range inputs {
+		tx := makeTxWithValue(contract, value, data)
+		if err := backend.SendTransaction(context.Background(), tx); err != nil {
+			panic("SendTransaction: " + err.Error())
+		}
+		receipt, err := bind.WaitMined(context.Background(), backend, tx)
+		if err != nil {
+			panic("WaitMined: " + err.Error())
+		}
+		if receipt.Status != types.ReceiptStatusSuccessful {
+			panic(fmt.Sprintf("test7002 tx %d reverted", i))
+		}
+	}
+}
+
+// test7251 creates consolidation requests in the EIP-7251 queue.
+func test7251() {
+	fmt.Println("test7251")
+	contract := common.HexToAddress("0x01aBEa29659e5e97C95107F20bb753cD3e09bBBb")
+	inputs := [][]byte{
+		// input data is source_blskey(48) || target_blskey(48)
+		common.FromHex("b917cfdc0d25b72d55cf94db328e1629b7f4fde2c30cdacf873b664416f76a0c7f7cc50c9f72a3cb84be88144cde9125b9812f7d0b1f2f969b52bbb2d316b0c2fa7c9dba85c428c5e6c27766bcc4b0c6e874702ff1eb1c7024b08524a9771601"),
+	}
+	for _, data := range inputs {
+		helper.Exec(contract, data, false)
+	}
+}
+
 func test2537Long() {
 	multiexpG1 := common.FromHex("00000000000000000000000000000000024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb80000000000000000000000000000000013e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e000000000000000000000000000000000ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801000000000000000000000000000000000606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be00000000000000000000000000000000024aa2b2f08f0a91260805272dc51051c6e47ad4fa403b02b4510b647ae3d1770bac0326a805bbefd48056c8c121bdb80000000000000000000000000000000013e02b6052719f607dacd3a088274f65596bd0d09920b61ab5da61bbdc7f5049334cf11213945d57e5ac7d055d042b7e000000000000000000000000000000000ce5d527727d6e118cc9cdc6da2e351aadfd9baa8cbdd3a76d429a695160d12c923ac9cc3baca289e193548608b82801000000000000000000000000000000000606c4a02ea734cc32acd2b02bc28b99cb3e287e85a763af267492ab572e99ab3f370d275cec1da1aaa9075ff05f79be")
 	testLongBLS(0x0d, multiexpG1)
@@ -141,4 +191,39 @@ func deployPrecompileCaller(precompile string) (common.Address, error) {
 	bytecode2 := "90505f808273ffffffffffffffffffffffffffffffffffffffff1661c35087876040516100459291906100fe565b5f604051808303815f8787f1925050503d805f811461007f576040519150601f19603f3d011682016040523d82523d5f602084013e610084565b606091505b5091509150809350815f806101000a81548160ff02191690831515021790555080600190816100b39190610350565b50505050915050805190602001f35b5f81905092915050565b828183375f83830152505050565b5f6100e583856100c2565b93506100f28385846100cc565b82840190509392505050565b5f61010a8284866100da565b91508190509392505050565b5f81519050919050565b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52602260045260245ffd5b5f600282049050600182168061019157607f821691505b6020821081036101a4576101a361014d565b5b50919050565b5f819050815f5260205f209050919050565b5f6020601f8301049050919050565b5f82821b905092915050565b5f600883026102067fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff826101cb565b61021086836101cb565b95508019841693508086168417925050509392505050565b5f819050919050565b5f819050919050565b5f61025461024f61024a84610228565b610231565b610228565b9050919050565b5f819050919050565b61026d8361023a565b6102816102798261025b565b8484546101d7565b825550505050565b5f90565b610295610289565b6102a0818484610264565b505050565b5b818110156102c3576102b85f8261028d565b6001810190506102a6565b5050565b601f821115610308576102d9816101aa565b6102e2846101bc565b810160208510156102f1578190505b6103056102fd856101bc565b8301826102a5565b50505b505050565b5f82821c905092915050565b5f6103285f198460080261030d565b1980831691505092915050565b5f6103408383610319565b9150826002028217905092915050565b61035982610116565b67ffffffffffffffff81111561037257610371610120565b5b61037c825461017a565b6103878282856102c7565b5f60209050601f8311600181146103b8575f84156103a6578287015190505b6103b08582610335565b865550610417565b601f1984166103c6866101aa565b5f5b828110156103ed578489015182556001820191506020850194506020810190506103c8565b8683101561040a5784890151610406601f891682610319565b8355505b6001600288020188555050505b50505050505056fea2646970667358221220bc28435cfa3208db8cae33e216a1ff54a6e5dce073695cad36274cc363055c5564736f6c63430008190033"
 	// The byte in between bytecode1 and bytecode2 denotes the precompile which we want to call
 	return helper.Deploy(fmt.Sprintf("%v%v%v", bytecode1, precompile, bytecode2))
+}
+
+// makeTxWithValue creates a transaction invoking addr, sending eth along with calldata.
+func makeTxWithValue(addr common.Address, value *big.Int, data []byte) *types.Transaction {
+	ctx := context.Background()
+	cl, sk := helper.GetRealBackend()
+	backend := ethclient.NewClient(cl)
+	sender := common.HexToAddress(txfuzz.ADDR)
+	nonce, err := backend.PendingNonceAt(ctx, sender)
+	if err != nil {
+		panic(err)
+	}
+	chainid, err := backend.ChainID(ctx)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Nonce: %v\n", nonce)
+	gp, err := backend.SuggestGasPrice(ctx)
+	if err != nil {
+		panic(err)
+	}
+	tip, err := backend.SuggestGasTipCap(ctx)
+	if err != nil {
+		panic(err)
+	}
+	return types.MustSignNewTx(sk, types.NewCancunSigner(chainid), &types.DynamicFeeTx{
+		ChainID:   chainid,
+		Nonce:     nonce,
+		GasTipCap: tip,
+		GasFeeCap: gp,
+		Gas:       200_000,
+		Value:     value,
+		To:        &addr,
+		Data:      data,
+	})
 }
