@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -171,7 +170,7 @@ func Airdrop(config *Config, value *big.Int) error {
 			Data:     nil,
 		})
 		if err != nil {
-			log.Error("error estimating gas: %v", err)
+			fmt.Printf("error estimating gas: %v\n", err)
 			return err
 		}
 		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)
