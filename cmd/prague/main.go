@@ -31,6 +31,7 @@ func main() {
 	fmt.Println("2935")
 	test2935()
 	test7002()
+	test7251()
 }
 
 func testTouchContracts() {
