@@ -241,7 +241,7 @@ func test7702() {
 	// authenticate self
 	selfAddr := common.HexToAddress(txfuzz.ADDR)
 	unsigned := &types.Authorization{
-		ChainID: helper.ChainID(),
+		ChainID: helper.ChainID().Uint64(),
 		Address: selfAddr,
 		Nonce:   helper.Nonce(selfAddr),
 	}

@@ -41,9 +41,9 @@ func randomAddress() common.Address {
 	case 5:
 		return params.BeaconRootsAddress
 	case 6:
-		return params.WithdrawalRequestsAddress
+		return params.WithdrawalQueueAddress
 	case 7:
-		return params.ConsolidationRequestsAddress
+		return params.ConsolidationQueueAddress
 	case 8:
 		return params.SystemAddress
 	case 9:
@@ -67,7 +67,7 @@ func randomBlobData() ([]byte, error) {
 
 func randomAuthEntry(f *filler.Filler) *types.Authorization {
 	return &types.Authorization{
-		ChainID: f.MemInt(),
+		ChainID: f.Uint64(),
 		Address: randomAddress(),
 		Nonce:   f.Uint64(),
 	}

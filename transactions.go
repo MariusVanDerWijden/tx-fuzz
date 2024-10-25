@@ -405,7 +405,7 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
 func New7702Tx(nonce uint64, to common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
 	return types.NewTx(
 		&types.SetCodeTx{
-			ChainID:    uint256.MustFromBig(chainID),
+			ChainID:    chainID.Uint64(),
 			Nonce:      nonce,
 			To:         to,
 			GasTipCap:  uint256.MustFromBig(tip),
