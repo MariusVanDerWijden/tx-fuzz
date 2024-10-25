@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -37,7 +36,7 @@ func sendTxWithNonce(sk *ecdsa.PrivateKey, backend *ethclient.Client, to common.
 	gas, _ := backend.EstimateGas(context.Background(), ethereum.CallMsg{
 		From:     crypto.PubkeyToAddress(sk.PublicKey),
 		To:       &to,
-		Gas:      math.MaxUint64,
+		Gas:      30_000_000,
 		GasPrice: gp,
 		Value:    value,
 		Data:     nil,

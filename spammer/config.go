@@ -105,10 +105,10 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup seed
 	seed := c.Int64(flags.SeedFlag.Name)
 	if seed == 0 {
-		fmt.Println("No seed provided, creating one")
 		rnd := make([]byte, 8)
 		crand.Read(rnd)
 		seed = int64(binary.BigEndian.Uint64(rnd))
+		fmt.Printf("No seed provided, creating one: %x\n", seed)
 	}
 
 	// Setup Mutator
