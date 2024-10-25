@@ -52,7 +52,7 @@ func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 
 		tx, err := txfuzz.RandomAuthTx(config.backend, f, sender, nonce, nil, nil, config.accessList, types.AuthorizationList{auth})
 		if err != nil {
-			log.Warn("Could not create valid tx: %v", nonce)
+			fmt.Printf("Could not create valid tx: %v", nonce)
 			return err
 		}
 		signedTx, err := types.SignTx(tx, types.NewPragueSigner(chainID), key)
@@ -60,7 +60,7 @@ func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 			return err
 		}
 		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
-			log.Warn("Could not submit transaction: %v", err)
+			fmt.Printf("Could not submit transaction: %v", err)
 			return err
 		}
 		lastTx = signedTx
