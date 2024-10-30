@@ -167,10 +167,10 @@ func Airdrop(config *Config, value *big.Int) error {
 			Gas:      30_000_000,
 			GasPrice: gp,
 			Value:    value,
-			Data:     nil,
 		})
 		if err != nil {
 			fmt.Printf("error estimating gas: %v\n", err)
+			fmt.Printf("estimating: from %v, to %v, gas %v, gasprice %v value %v", crypto.PubkeyToAddress(config.faucet.PublicKey), &to, 30_000_000, gp, value)
 			return err
 		}
 		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)
