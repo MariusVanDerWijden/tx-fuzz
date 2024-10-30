@@ -3,7 +3,7 @@ package txfuzz
 import (
 	"context"
 	"crypto/sha256"
-	"math"
+	"fmt"
 	"math/big"
 	"math/rand"
 
@@ -77,7 +77,7 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:      sender,
 			To:        &to,
-			Gas:       math.MaxUint64,
+			Gas:       30_000_000,
 			GasPrice:  gasPrice,
 			GasFeeCap: gasPrice,
 			GasTipCap: gasPrice,
@@ -85,7 +85,7 @@ func initDefaultTxConf(rpc *rpc.Client, f *filler.Filler, sender common.Address,
 			Data:      code,
 		})
 		if err == nil {
-			log.Warn("Error estimating gas: %v", err)
+			fmt.Printf("Error estimating gas: %v", err)
 			gasCost = gas
 		}
 	}
@@ -126,6 +126,24 @@ func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	} else {
 		return emptyAlBlobTx(conf)
 	}
+}
+
+func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, aList types.AuthorizationList) (*types.Transaction, error) {
+	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
+	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
+	var list types.AccessList
+	if al {
+		l, err := CreateAccessList(conf.rpc, tx, conf.sender)
+		if err != nil {
+			return nil, err
+		}
+		list = *l
+	}
+	tip, feecap, err := getCaps(conf.rpc, conf.gasPrice)
+	if err != nil {
+		return nil, err
+	}
+	return New7702Tx(conf.nonce, *conf.to, conf.gasLimit, conf.chainID, tip, feecap, conf.value, conf.code, big.NewInt(1000000), list, aList), nil
 }
 
 type txCreationStrategy func(conf *txConf) (*types.Transaction, error)
@@ -382,4 +400,21 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
 	h[0] = blobCommitmentVersionKZG
 
 	return h
+}
+
+func New7702Tx(nonce uint64, to common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
+	return types.NewTx(
+		&types.SetCodeTx{
+			ChainID:    chainID.Uint64(),
+			Nonce:      nonce,
+			To:         to,
+			GasTipCap:  uint256.MustFromBig(tip),
+			GasFeeCap:  uint256.MustFromBig(feeCap),
+			Gas:        gasLimit,
+			Value:      uint256.MustFromBig(value),
+			Data:       code,
+			AuthList:   auth,
+			AccessList: al,
+		},
+	)
 }

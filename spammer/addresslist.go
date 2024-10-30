@@ -9,11 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -166,13 +164,13 @@ func Airdrop(config *Config, value *big.Int) error {
 		gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:     crypto.PubkeyToAddress(config.faucet.PublicKey),
 			To:       &to,
-			Gas:      math.MaxInt64,
+			Gas:      30_000_000,
 			GasPrice: gp,
 			Value:    value,
-			Data:     nil,
 		})
 		if err != nil {
-			log.Error("error estimating gas: %v", err)
+			fmt.Printf("error estimating gas: %v\n", err)
+			fmt.Printf("estimating: from %v, to %v, gas %v, gasprice %v value %v", crypto.PubkeyToAddress(config.faucet.PublicKey), &to, 30_000_000, gp, value)
 			return err
 		}
 		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)

@@ -36,6 +36,13 @@ var blobSpamCommand = &cli.Command{
 	Flags:  flags.SpamFlags,
 }
 
+var pectraSpamCommand = &cli.Command{
+	Name:   "pectra",
+	Usage:  "Send 7702 spam transactions",
+	Action: run7702Spam,
+	Flags:  flags.SpamFlags,
+}
+
 var createCommand = &cli.Command{
 	Name:   "create",
 	Usage:  "Create ephemeral accounts",
@@ -61,6 +68,7 @@ func initApp() *cli.App {
 		airdropCommand,
 		spamCommand,
 		blobSpamCommand,
+		pectraSpamCommand,
 		createCommand,
 		unstuckCommand,
 	}
@@ -90,11 +98,14 @@ func runAirdrop(c *cli.Context) error {
 
 func spam(config *spammer.Config, spamFn spammer.Spam, airdropValue *big.Int) error {
 	// Make sure the accounts are unstuck before sending any transactions
+	fmt.Println("Unstucking")
 	spammer.Unstuck(config)
 	for {
+		fmt.Println("Airdropping")
 		if err := spammer.Airdrop(config, airdropValue); err != nil {
 			return err
 		}
+		fmt.Println("Spamming")
 		spammer.SpamTransactions(config, spamFn)
 		time.Sleep(time.Duration(config.SlotTime) * time.Second)
 	}
@@ -117,6 +128,16 @@ func runBlobSpam(c *cli.Context) error {
 	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.N)*1000000)), big.NewInt(params.GWei))
 	airdropValue = airdropValue.Mul(airdropValue, big.NewInt(100))
 	return spam(config, spammer.SendBlobTransactions, airdropValue)
+}
+
+func run7702Spam(c *cli.Context) error {
+	config, err := spammer.NewConfigFromContext(c)
+	if err != nil {
+		return err
+	}
+	airdropValue := new(big.Int).Mul(big.NewInt(int64((1+config.N)*1000000)), big.NewInt(params.GWei))
+	airdropValue = airdropValue.Mul(airdropValue, big.NewInt(100))
+	return spam(config, spammer.Send7702Transactions, airdropValue)
 }
 
 func runCreate(c *cli.Context) error {

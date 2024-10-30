@@ -1,11 +1,15 @@
 package txfuzz
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"fmt"
 	mathRand "math/rand"
 
+	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 const (
@@ -22,7 +26,7 @@ func randomHash() common.Hash {
 }
 
 func randomAddress() common.Address {
-	switch mathRand.Int31n(5) {
+	switch mathRand.Int31n(8) {
 	case 0, 1, 2:
 		b := make([]byte, 20)
 		_, err := rand.Read(b)
@@ -34,6 +38,16 @@ func randomAddress() common.Address {
 		return common.Address{}
 	case 4:
 		return common.HexToAddress(ADDR)
+	case 5:
+		return params.BeaconRootsAddress
+	case 6:
+		return params.WithdrawalQueueAddress
+	case 7:
+		return params.ConsolidationQueueAddress
+	case 8:
+		return params.SystemAddress
+	case 9:
+		return params.HistoryStorageAddress
 	}
 	return common.Address{}
 }
@@ -49,4 +63,25 @@ func randomBlobData() ([]byte, error) {
 		return nil, fmt.Errorf("could not create random blob data with size %d: %v", size, err)
 	}
 	return data, nil
+}
+
+func randomAuthEntry(f *filler.Filler) *types.Authorization {
+	return &types.Authorization{
+		ChainID: f.Uint64(),
+		Address: randomAddress(),
+		Nonce:   f.Uint64(),
+	}
+}
+
+func RandomAuthList(f *filler.Filler, sk *ecdsa.PrivateKey) (types.AuthorizationList, error) {
+	var authList types.AuthorizationList
+	entries := f.MemInt()
+	for i := 0; i < int(entries.Uint64()); i++ {
+		signed, err := types.SignAuth(randomAuthEntry(f), sk)
+		if err != nil {
+			return nil, err
+		}
+		authList = append(authList, signed)
+	}
+	return authList, nil
 }
