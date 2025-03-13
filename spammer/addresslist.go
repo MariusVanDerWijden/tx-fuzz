@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -144,24 +145,25 @@ func CreateAddresses(N int) ([]string, []string) {
 }
 
 func Airdrop(config *Config, value *big.Int) error {
-	backend := ethclient.NewClient(config.backend)
+	backend := config.backends[rand.Intn(len(config.backends))]
+	client := ethclient.NewClient(backend)
 	sender := crypto.PubkeyToAddress(config.faucet.PublicKey)
 	fmt.Printf("Airdrop faucet is at %x\n", sender)
 	var tx *types.Transaction
-	chainid, err := backend.ChainID(context.Background())
+	chainid, err := client.ChainID(context.Background())
 	if err != nil {
 		fmt.Printf("error getting chain ID; could not airdrop: %v\n", err)
 		return err
 	}
 	for _, addr := range config.keys {
-		nonce, err := backend.PendingNonceAt(context.Background(), sender)
+		nonce, err := client.PendingNonceAt(context.Background(), sender)
 		if err != nil {
 			fmt.Printf("error getting pending nonce; could not airdrop: %v\n", err)
 			return err
 		}
 		to := crypto.PubkeyToAddress(addr.PublicKey)
-		gp, _ := backend.SuggestGasPrice(context.Background())
-		gas, err := backend.EstimateGas(context.Background(), ethereum.CallMsg{
+		gp, _ := client.SuggestGasPrice(context.Background())
+		gas, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
 			From:     crypto.PubkeyToAddress(config.faucet.PublicKey),
 			To:       &to,
 			Gas:      30_000_000,
@@ -175,7 +177,7 @@ func Airdrop(config *Config, value *big.Int) error {
 		}
 		tx2 := types.NewTransaction(nonce, to, value, gas, gp, nil)
 		signedTx, _ := types.SignTx(tx2, types.LatestSignerForChainID(chainid), config.faucet)
-		if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
+		if err := client.SendTransaction(context.Background(), signedTx); err != nil {
 			fmt.Printf("error sending transaction; could not airdrop: %v\n", err)
 			return err
 		}
@@ -183,7 +185,7 @@ func Airdrop(config *Config, value *big.Int) error {
 		time.Sleep(10 * time.Millisecond)
 	}
 	// Wait for the last transaction to be mined
-	if _, err := bind.WaitMined(context.Background(), backend, tx); err != nil {
+	if _, err := bind.WaitMined(context.Background(), client, tx); err != nil {
 		return err
 	}
 	return nil

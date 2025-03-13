@@ -38,6 +38,11 @@ var (
 		Value: "http://127.0.0.1:8545",
 	}
 
+	RpcsFlag = &cli.StringFlag{
+		Name:  "rpcs",
+		Usage: "Comma separated list of RPC providers to use for sending transactions",
+	}
+
 	TxCountFlag = &cli.IntFlag{
 		Name:  "txcount",
 		Usage: "Number of transactions send per account per block, 0 = best estimate",
@@ -62,6 +67,7 @@ var (
 		NoALFlag,
 		CorpusFlag,
 		RpcFlag,
+		RpcsFlag,
 		TxCountFlag,
 		CountFlag,
 		GasLimitFlag,

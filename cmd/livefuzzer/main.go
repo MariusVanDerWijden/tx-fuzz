@@ -19,6 +19,7 @@ var airdropCommand = &cli.Command{
 	Flags: []cli.Flag{
 		flags.SkFlag,
 		flags.RpcFlag,
+		flags.RpcsFlag,
 	},
 }
 
@@ -50,6 +51,7 @@ var createCommand = &cli.Command{
 	Flags: []cli.Flag{
 		flags.CountFlag,
 		flags.RpcFlag,
+		flags.RpcsFlag,
 	},
 }
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -75,8 +76,9 @@ func Unstuck(config *Config) error {
 
 func tryUnstuck(config *Config, sk *ecdsa.PrivateKey) error {
 	var (
-		client = ethclient.NewClient(config.backend)
-		addr   = crypto.PubkeyToAddress(sk.PublicKey)
+		backend = config.backends[rand.Intn(len(config.backends))]
+		client  = ethclient.NewClient(backend)
+		addr    = crypto.PubkeyToAddress(sk.PublicKey)
 	)
 	for i := 0; i < 100; i++ {
 		noTx, err := isStuck(config, addr)
@@ -107,7 +109,8 @@ func tryUnstuck(config *Config, sk *ecdsa.PrivateKey) error {
 }
 
 func isStuck(config *Config, account common.Address) (uint64, error) {
-	client := ethclient.NewClient(config.backend)
+	backend := config.backends[rand.Intn(len(config.backends))]
+	client := ethclient.NewClient(backend)
 	nonce, err := client.NonceAt(context.Background(), account, nil)
 	if err != nil {
 		return 0, err

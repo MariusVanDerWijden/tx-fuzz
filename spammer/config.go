@@ -5,9 +5,11 @@ import (
 	"crypto/ecdsa"
 	crand "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/rand"
 	"os"
+	"strings"
 
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
 	"github.com/MariusVanDerWijden/tx-fuzz/flags"
@@ -20,7 +22,7 @@ import (
 )
 
 type Config struct {
-	backend *rpc.Client // connection to the rpc provider
+	backends []*rpc.Client // connection to the rpc provider
 
 	N          uint64              // number of transactions send per account
 	faucet     *ecdsa.PrivateKey   // private key of the faucet account
@@ -34,11 +36,19 @@ type Config struct {
 	mut  *mutator.Mutator // Mutator based on the seed
 }
 
-func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand) (*Config, error) {
+func NewDefaultConfig(rpcAddrs string, N uint64, accessList bool, rng *rand.Rand) (*Config, error) {
 	// Setup RPC
-	backend, err := rpc.Dial(rpcAddr)
-	if err != nil {
-		return nil, err
+	backends := make([]*rpc.Client, 0)
+
+	for _, rpcAddr := range strings.Split(rpcAddrs, ",") {
+		backend, err := rpc.Dial(rpcAddr)
+		if err == nil {
+			backends = append(backends, backend)
+		}
+	}
+
+	if len(backends) == 0 {
+		return nil, errors.New("no valid rpc addresses found")
 	}
 
 	// Setup Keys
@@ -48,7 +58,7 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 	}
 
 	return &Config{
-		backend:    backend,
+		backends:   backends,
 		N:          N,
 		faucet:     crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK)),
 		keys:       keys,
@@ -62,14 +72,28 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 
 func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup RPC
-	rpcAddr := c.String(flags.RpcFlag.Name)
-	backend, err := rpc.Dial(rpcAddr)
-	if err != nil {
-		return nil, err
+	var rpcAddrs []string
+	if rpcs := c.String(flags.RpcsFlag.Name); rpcs != "" {
+		rpcAddrs = strings.Split(rpcs, ",")
+	} else {
+		rpcAddrs = []string{c.String(flags.RpcFlag.Name)}
+	}
+
+	backends := make([]*rpc.Client, 0)
+	for _, rpcAddr := range rpcAddrs {
+		backend, err := rpc.Dial(rpcAddr)
+		if err == nil {
+			backends = append(backends, backend)
+		}
+	}
+
+	if len(backends) == 0 {
+		return nil, errors.New("no valid rpc addresses found")
 	}
 
 	// Setup faucet
 	faucet := crypto.ToECDSAUnsafe(common.FromHex(txfuzz.SK))
+	var err error
 	if sk := c.String(flags.SkFlag.Name); sk != "" {
 		faucet, err = crypto.ToECDSA(common.FromHex(sk))
 		if err != nil {
@@ -94,7 +118,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup N
 	N := c.Int(flags.TxCountFlag.Name)
 	if N == 0 {
-		N, err = setupN(backend, len(keys), gasLimit)
+		N, err = setupN(backends[0], len(keys), gasLimit)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +148,7 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	}
 
 	return &Config{
-		backend:    backend,
+		backends:   backends,
 		N:          uint64(N),
 		faucet:     faucet,
 		accessList: !c.Bool(flags.NoALFlag.Name),
