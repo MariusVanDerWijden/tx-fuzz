@@ -2,8 +2,7 @@ package main
 
 import (
 	"github.com/ethereum/go-ethereum/core/vm"
-	"github.com/holiman/goevmlab/ops"
-	"github.com/holiman/goevmlab/program"
+	"github.com/ethereum/go-ethereum/core/vm/program"
 )
 
 func Selfdestructor() []byte {
@@ -17,19 +16,19 @@ func Selfdestructor() []byte {
 		byte(vm.SELFDESTRUCT),
 	}
 
-	initcode := program.NewProgram()
+	initcode := program.New()
 	initcode.Mstore(selfdestructTo, 0)
-	initcode.Return(0, uint32(len(selfdestructTo)))
+	initcode.Return(0, len(selfdestructTo))
 
-	program := program.NewProgram()
+	program := program.New()
 	Create(program, selfdestructTo, false, true)
-	program.Op(ops.POP)
+	program.Op(vm.POP)
 	Create(program, selfdestructTo, true, false)
-	program.Op(ops.POP)
-	Create(program, initcode.Bytecode(), true, false)
+	program.Op(vm.POP)
+	Create(program, initcode.Bytes(), true, false)
 	//program.CreateAndCall(initcode.Bytecode(), true, ops.STATICCALL)
 	//program.CreateAndCall(initcode.Bytecode(), true, ops.DELEGATECALL)
-	return program.Bytecode()
+	return program.Bytes()
 }
 
 func EfByte() []byte {
@@ -37,16 +36,16 @@ func EfByte() []byte {
 		0xEF,
 	}
 
-	initcode := program.NewProgram()
+	initcode := program.New()
 	initcode.Mstore(inner, 0)
-	initcode.Return(0, uint32(len(inner)))
+	initcode.Return(0, len(inner))
 
-	program := program.NewProgram()
-	Create(program, initcode.Bytecode(), false, false)
-	program.Op(ops.POP)
-	Create(program, initcode.Bytecode(), true, true)
-	program.Op(ops.POP)
-	return program.Bytecode()
+	program := program.New()
+	Create(program, initcode.Bytes(), false, false)
+	program.Op(vm.POP)
+	Create(program, initcode.Bytes(), true, true)
+	program.Op(vm.POP)
+	return program.Bytes()
 }
 
 func Create(p *program.Program, code []byte, inMemory bool, isCreate2 bool) {
@@ -55,7 +54,7 @@ func Create(p *program.Program, code []byte, inMemory bool, isCreate2 bool) {
 		offset   = 0
 		size     = len(code)
 		salt     = 0
-		createOp = ops.CREATE
+		createOp = vm.CREATE
 	)
 	// Load the code into mem
 	if !inMemory {
@@ -64,7 +63,7 @@ func Create(p *program.Program, code []byte, inMemory bool, isCreate2 bool) {
 	// Create it
 	if isCreate2 {
 		p.Push(salt)
-		createOp = ops.CREATE2
+		createOp = vm.CREATE2
 	}
 	p.Push(size).Push(offset).Push(value).Op(createOp)
 }

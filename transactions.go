@@ -128,7 +128,7 @@ func RandomBlobTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonc
 	}
 }
 
-func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, aList types.AuthorizationList) (*types.Transaction, error) {
+func RandomAuthTx(rpc *rpc.Client, f *filler.Filler, sender common.Address, nonce uint64, gasPrice, chainID *big.Int, al bool, aList []types.SetCodeAuthorization) (*types.Transaction, error) {
 	conf := initDefaultTxConf(rpc, f, sender, nonce, gasPrice, chainID)
 	tx := types.NewTransaction(conf.nonce, *conf.to, conf.value, conf.gasLimit, conf.gasPrice, conf.code)
 	var list types.AccessList
@@ -402,10 +402,10 @@ func kZGToVersionedHash(kzg kzg4844.Commitment) common.Hash {
 	return h
 }
 
-func New7702Tx(nonce uint64, to common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth types.AuthorizationList) *types.Transaction {
+func New7702Tx(nonce uint64, to common.Address, gasLimit uint64, chainID, tip, feeCap, value *big.Int, code []byte, blobFeeCap *big.Int, al types.AccessList, auth []types.SetCodeAuthorization) *types.Transaction {
 	return types.NewTx(
 		&types.SetCodeTx{
-			ChainID:    chainID.Uint64(),
+			ChainID:    uint256.MustFromBig(chainID),
 			Nonce:      nonce,
 			To:         to,
 			GasTipCap:  uint256.MustFromBig(tip),

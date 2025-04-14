@@ -9,6 +9,7 @@ import (
 
 	"github.com/MariusVanDerWijden/FuzzyVM/filler"
 	txfuzz "github.com/MariusVanDerWijden/tx-fuzz"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -41,42 +42,52 @@ func Exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 	}
 	tip, err := backend.SuggestGasTipCap(context.Background())
 	if err != nil {
-		tip = big.NewInt(100000000)
-		//panic(err)
+		panic(err)
 	}
-	var rlpData []byte
-	var _tx *types.Transaction
-	gasLimit := uint64(30_000_000)
+
+	msg := ethereum.CallMsg{
+		From:          sender,
+		To:            &addr,
+		Gas:           uint64(30_000_000),
+		GasTipCap:     tip,
+		GasFeeCap:     gp,
+		Value:         big.NewInt(0),
+		Data:          data,
+		AccessList:    make(types.AccessList, 0),
+		BlobGasFeeCap: big.NewInt(1_000_000),
+	}
+	if gas, err := backend.EstimateGas(context.Background(), msg); err != nil {
+		msg.Gas = uint64(5_000_000)
+		fmt.Printf("Error estimating gas: %v, defaulting to %v gas\n", err, msg.Gas)
+	} else {
+		msg.Gas = gas
+	}
+
+	var signedTx *types.Transaction
 	if blobs {
 		blob, err := RandomBlobData()
 		if err != nil {
 			panic(err)
 		}
-		//nonce = nonce - 2
-		tx := txfuzz.New4844Tx(nonce, &addr, gasLimit, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), blob, make(types.AccessList, 0))
-		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
-		rlpData, err = signedTx.MarshalBinary()
-		if err != nil {
-			panic(err)
-		}
-		_tx = signedTx
+		tx := txfuzz.New4844Tx(nonce, msg.To, msg.Gas, chainid, msg.GasTipCap, msg.GasPrice, msg.Value, msg.Data, msg.BlobGasFeeCap, blob, msg.AccessList)
+		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
 	} else {
-		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: tip, GasFeeCap: gp, Gas: gasLimit, To: &addr, Data: data})
-		signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
-		rlpData, err = signedTx.MarshalBinary()
-		if err != nil {
-			panic(err)
-		}
-		_tx = signedTx
+		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: msg.GasTipCap, GasFeeCap: msg.GasFeeCap, Gas: msg.Gas, To: msg.To, Data: msg.Data, Value: msg.Value, AccessList: msg.AccessList})
+		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+	}
+
+	rlpData, err := signedTx.MarshalBinary()
+	if err != nil {
+		panic(err)
 	}
 
 	if err := cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
-	return _tx
+	return signedTx
 }
 
-func ExecAuth(addr common.Address, data []byte, authList *types.AuthorizationList) *types.Transaction {
+func ExecAuth(addr common.Address, data []byte, authList []types.SetCodeAuthorization) *types.Transaction {
 	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
 	sender := common.HexToAddress(txfuzz.ADDR)
@@ -108,9 +119,9 @@ func ExecAuth(addr common.Address, data []byte, authList *types.AuthorizationLis
 		if err != nil {
 			panic(err)
 		}
-		authList = &aList
+		authList = aList
 	}
-	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), make(types.AccessList, 0), *authList)
+	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), make(types.AccessList, 0), authList)
 	signedTx, _ := types.SignTx(tx, types.NewPragueSigner(chainid), sk)
 	rlpData, err = signedTx.MarshalBinary()
 	if err != nil {
@@ -118,7 +129,7 @@ func ExecAuth(addr common.Address, data []byte, authList *types.AuthorizationLis
 	}
 	_tx = signedTx
 	if err := cl.CallContext(context.Background(), nil, "eth_sendRawTransaction", hexutil.Encode(rlpData)); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 	return _tx
 }
@@ -177,7 +188,7 @@ func Deploy(bytecode string) (common.Address, error) {
 	}
 	fmt.Printf("Nonce: %v\n", nonce)
 	gp, _ := backend.SuggestGasPrice(context.Background())
-	tx := types.NewContractCreation(nonce, common.Big0, 500000, gp.Mul(gp, common.Big2), common.Hex2Bytes(bytecode))
+	tx := types.NewContractCreation(nonce, common.Big0, 5_000_000, gp.Mul(gp, common.Big2), common.Hex2Bytes(bytecode))
 	signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
 	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 		return common.Address{}, err

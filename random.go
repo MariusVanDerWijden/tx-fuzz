@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 )
 
 const (
@@ -65,19 +66,19 @@ func randomBlobData() ([]byte, error) {
 	return data, nil
 }
 
-func randomAuthEntry(f *filler.Filler) *types.Authorization {
-	return &types.Authorization{
-		ChainID: f.Uint64(),
+func randomAuthEntry(f *filler.Filler) types.SetCodeAuthorization {
+	return types.SetCodeAuthorization{
+		ChainID: *uint256.NewInt(f.Uint64()),
 		Address: randomAddress(),
 		Nonce:   f.Uint64(),
 	}
 }
 
-func RandomAuthList(f *filler.Filler, sk *ecdsa.PrivateKey) (types.AuthorizationList, error) {
-	var authList types.AuthorizationList
+func RandomAuthList(f *filler.Filler, sk *ecdsa.PrivateKey) ([]types.SetCodeAuthorization, error) {
+	var authList []types.SetCodeAuthorization
 	entries := f.MemInt()
 	for i := 0; i < int(entries.Uint64()); i++ {
-		signed, err := types.SignAuth(randomAuthEntry(f), sk)
+		signed, err := types.SignSetCode(sk, randomAuthEntry(f))
 		if err != nil {
 			return nil, err
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/holiman/uint256"
 )
 
 func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Filler) error {
@@ -39,18 +40,18 @@ func Send7702Transactions(config *Config, key *ecdsa.PrivateKey, f *filler.Fille
 			return err
 		}
 
-		auth := &types.Authorization{
-			ChainID: chainID.Uint64(),
+		auth := types.SetCodeAuthorization{
+			ChainID: *uint256.MustFromBig(chainID),
 			Address: sender,
 			Nonce:   nonceAuth,
 		}
 
-		auth, err = types.SignAuth(auth, authorizer)
+		auth, err = types.SignSetCode(authorizer, auth)
 		if err != nil {
 			return err
 		}
 
-		tx, err := txfuzz.RandomAuthTx(config.backend, f, sender, nonce, nil, nil, config.accessList, types.AuthorizationList{auth})
+		tx, err := txfuzz.RandomAuthTx(config.backend, f, sender, nonce, nil, nil, config.accessList, []types.SetCodeAuthorization{auth})
 		if err != nil {
 			fmt.Printf("Could not create valid tx: %v", nonce)
 			return err
