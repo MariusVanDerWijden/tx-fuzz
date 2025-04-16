@@ -339,9 +339,12 @@ func test2935() {
 			currentBlock - 8192,
 			currentBlock - 256,
 			currentBlock - 255,
+			currentBlock - 20000,
 		}
 		for _, number := range blocknumbers {
-			helper.Exec(addr, binary.BigEndian.AppendUint64([]byte{}, number), false)
+			input := make([]byte, 32)
+			binary.BigEndian.PutUint64(input[24:], number)
+			helper.Exec(addr, input, false)
 		}
 	}
 }
