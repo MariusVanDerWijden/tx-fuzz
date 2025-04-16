@@ -60,6 +60,14 @@ func NewDefaultConfig(rpcAddr string, N uint64, accessList bool, rng *rand.Rand)
 	}, nil
 }
 
+func NewPartialConfig(backend *rpc.Client, faucet *ecdsa.PrivateKey, keys []*ecdsa.PrivateKey) *Config {
+	return &Config{
+		backend: backend,
+		faucet:  faucet,
+		keys:    keys,
+	}
+}
+
 func NewConfigFromContext(c *cli.Context) (*Config, error) {
 	// Setup RPC
 	rpcAddr := c.String(flags.RpcFlag.Name)

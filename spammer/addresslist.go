@@ -2,6 +2,7 @@ package spammer
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"time"
@@ -123,12 +124,8 @@ func CreateAddresses(N int) ([]string, []string) {
 	keys := make([]string, 0, N)
 	addrs := make([]string, 0, N)
 
-	for i := 0; i < N; i++ {
-		// WARNING= USES UNSECURE RANDOMNESS
-		sk, err := crypto.GenerateKey()
-		if err != nil {
-			panic(err)
-		}
+	k := CreateAddressesRaw(N)
+	for _, sk := range k {
 		addr := crypto.PubkeyToAddress(sk.PublicKey)
 		skHex := "0x" + common.Bytes2Hex(crypto.FromECDSA(sk))
 		// Sanity check marshalling
@@ -141,6 +138,20 @@ func CreateAddresses(N int) ([]string, []string) {
 		addrs = append(addrs, addr.Hex())
 	}
 	return keys, addrs
+}
+
+func CreateAddressesRaw(N int) []*ecdsa.PrivateKey {
+	keys := make([]*ecdsa.PrivateKey, 0, N)
+
+	for i := 0; i < N; i++ {
+		// WARNING= USES UNSECURE RANDOMNESS
+		sk, err := crypto.GenerateKey()
+		if err != nil {
+			panic(err)
+		}
+		keys = append(keys, sk)
+	}
+	return keys
 }
 
 func Airdrop(config *Config, value *big.Int) error {

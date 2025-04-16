@@ -24,9 +24,14 @@ const (
 )
 
 func Exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
-	cl, sk := GetRealBackend()
+	_, sk := GetRealBackend()
+	return ExecWithSK(sk, addr, data, blobs)
+}
+
+func ExecWithSK(sk *ecdsa.PrivateKey, addr common.Address, data []byte, blobs bool) *types.Transaction {
+	cl, _ := GetRealBackend()
 	backend := ethclient.NewClient(cl)
-	sender := common.HexToAddress(txfuzz.ADDR)
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
 		panic(err)
@@ -90,11 +95,17 @@ func Exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
 func ExecAuth(addr common.Address, data []byte, authList []types.SetCodeAuthorization) *types.Transaction {
 	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
-	sender := common.HexToAddress(txfuzz.ADDR)
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
 		panic(err)
 	}
+	return ExecAuthWithNonce(addr, nonce, data, authList)
+}
+
+func ExecAuthWithNonce(addr common.Address, nonce uint64, data []byte, authList []types.SetCodeAuthorization) *types.Transaction {
+	cl, sk := GetRealBackend()
+	backend := ethclient.NewClient(cl)
 	chainid, err := backend.ChainID(context.Background())
 	if err != nil {
 		panic(err)
@@ -106,12 +117,11 @@ func ExecAuth(addr common.Address, data []byte, authList []types.SetCodeAuthoriz
 	}
 	tip, err := backend.SuggestGasTipCap(context.Background())
 	if err != nil {
-		tip = big.NewInt(100000000)
-		//panic(err)
+		panic(err)
 	}
 	var rlpData []byte
 	var _tx *types.Transaction
-	gasLimit := uint64(30_000_000)
+	gasLimit := uint64(5_000_000)
 	if authList == nil {
 		buf := make([]byte, 1024)
 		rand.Read(buf)
@@ -121,7 +131,7 @@ func ExecAuth(addr common.Address, data []byte, authList []types.SetCodeAuthoriz
 		}
 		authList = aList
 	}
-	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, common.Big1), gp.Mul(gp, common.Big1), common.Big0, data, big.NewInt(1_000_000), make(types.AccessList, 0), authList)
+	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, big.NewInt(100)), gp.Mul(gp, big.NewInt(100)), common.Big0, data, big.NewInt(1_000_000), make(types.AccessList, 0), authList)
 	signedTx, _ := types.SignTx(tx, types.NewPragueSigner(chainid), sk)
 	rlpData, err = signedTx.MarshalBinary()
 	if err != nil {
@@ -196,10 +206,10 @@ func Deploy(bytecode string) (common.Address, error) {
 	return bind.WaitDeployed(context.Background(), backend, signedTx)
 }
 
-func Execute(data []byte, gaslimit uint64) {
+func Execute(data []byte, gaslimit uint64) error {
 	cl, sk := GetRealBackend()
 	backend := ethclient.NewClient(cl)
-	sender := common.HexToAddress(txfuzz.ADDR)
+	sender := crypto.PubkeyToAddress(sk.PublicKey)
 	nonce, err := backend.PendingNonceAt(context.Background(), sender)
 	if err != nil {
 		panic(err)
@@ -212,7 +222,7 @@ func Execute(data []byte, gaslimit uint64) {
 	gp, _ := backend.SuggestGasPrice(context.Background())
 	tx := types.NewContractCreation(nonce, common.Big1, gaslimit, gp.Mul(gp, common.Big2), data)
 	signedTx, _ := types.SignTx(tx, types.NewLondonSigner(chainid), sk)
-	backend.SendTransaction(context.Background(), signedTx)
+	return backend.SendTransaction(context.Background(), signedTx)
 }
 
 func RandomBlobData() ([]byte, error) {
