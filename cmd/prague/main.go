@@ -28,7 +28,7 @@ func main() {
 	test7002()
 	test7251()
 	test7702BlobTxs()
-	//test7702NormalTxs() // flakey
+	test7702NormalTxs() // flakey
 }
 
 func testTouchContracts() {
