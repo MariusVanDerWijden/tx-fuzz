@@ -30,6 +30,9 @@ type Config struct {
 	gasLimit   uint64              // gas limit per transaction
 	SlotTime   uint64              // slot time in seconds
 
+	// SidecarVersion is the blob sidecar format used for blob transactions.
+	SidecarVersion txfuzz.BlobSidecarVersion
+
 	seed int64            // seed used for generating randomness
 	mut  *mutator.Mutator // Mutator based on the seed
 }
@@ -110,6 +113,12 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 
 	slotTime := c.Uint64(flags.SlotTimeFlag.Name)
 
+	// Setup the blob sidecar version
+	sidecarVersion, err := parseSidecarVersion(c.Int(flags.SidecarVersionFlag.Name))
+	if err != nil {
+		return nil, err
+	}
+
 	// Setup seed
 	seed := c.Int64(flags.SeedFlag.Name)
 	if seed == 0 {
@@ -142,7 +151,22 @@ func NewConfigFromContext(c *cli.Context) (*Config, error) {
 		corpus:     corpus,
 		mut:        mut,
 		SlotTime:   slotTime,
+
+		SidecarVersion: sidecarVersion,
 	}, nil
+}
+
+// parseSidecarVersion maps the wire format version of a blob sidecar onto the
+// internal representation.
+func parseSidecarVersion(version int) (txfuzz.BlobSidecarVersion, error) {
+	switch version {
+	case 0:
+		return txfuzz.SidecarLegacy, nil
+	case 1:
+		return txfuzz.SidecarLatest, nil
+	default:
+		return 0, fmt.Errorf("unsupported blob sidecar version %d", version)
+	}
 }
 
 func setupN(backend *rpc.Client, keys int, gasLimit int) (int, error) {

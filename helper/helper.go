@@ -16,11 +16,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/holiman/uint256"
 )
 
 const (
-	maxDataPerBlob = 1 << 17 // 128Kb
+	// maxBlobData is the largest amount of blob data that still fits into the
+	// per-transaction blob limit.
+	maxBlobData = params.BlobTxMaxBlobs * params.BlobTxFieldElementsPerBlob * 31
 )
 
 func Exec(addr common.Address, data []byte, blobs bool) *types.Transaction {
@@ -74,11 +78,14 @@ func ExecWithSK(sk *ecdsa.PrivateKey, addr common.Address, data []byte, blobs bo
 		if err != nil {
 			panic(err)
 		}
-		tx := txfuzz.New4844Tx(nonce, msg.To, msg.Gas, chainid, msg.GasTipCap, msg.GasPrice, msg.Value, msg.Data, msg.BlobGasFeeCap, blob, msg.AccessList)
-		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+		tx, err := txfuzz.New4844Tx(nonce, msg.To, msg.Gas, chainid, msg.GasTipCap, msg.GasFeeCap, msg.Value, msg.Data, msg.BlobGasFeeCap, blob, msg.AccessList, txfuzz.SidecarLatest)
+		if err != nil {
+			panic(err)
+		}
+		signedTx, _ = txfuzz.SignTx(tx, chainid, sk)
 	} else {
 		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: msg.GasTipCap, GasFeeCap: msg.GasFeeCap, Gas: msg.Gas, To: msg.To, Data: msg.Data, Value: msg.Value, AccessList: msg.AccessList})
-		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+		signedTx, _ = txfuzz.SignTx(tx, chainid, sk)
 	}
 
 	rlpData, err := signedTx.MarshalBinary()
@@ -125,14 +132,17 @@ func ExecAuthWithNonce(addr common.Address, nonce uint64, data []byte, authList 
 	if authList == nil {
 		buf := make([]byte, 1024)
 		rand.Read(buf)
-		aList, err := txfuzz.RandomAuthList(filler.NewFiller(buf), sk)
+		// The authority is the sender of the transaction, so its nonce has
+		// already been bumped by the transaction itself when the authorization
+		// is applied.
+		aList, err := txfuzz.RandomAuthList(filler.NewFiller(buf), sk, uint256.MustFromBig(chainid), nonce+1)
 		if err != nil {
 			panic(err)
 		}
 		authList = aList
 	}
-	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, big.NewInt(100)), gp.Mul(gp, big.NewInt(100)), common.Big0, data, big.NewInt(1_000_000), make(types.AccessList, 0), authList)
-	signedTx, _ := types.SignTx(tx, types.NewPragueSigner(chainid), sk)
+	tx := txfuzz.New7702Tx(nonce, addr, gasLimit, chainid, tip.Mul(tip, big.NewInt(100)), gp.Mul(gp, big.NewInt(100)), common.Big0, data, make(types.AccessList, 0), authList)
+	signedTx, _ := txfuzz.SignTx(tx, chainid, sk)
 	rlpData, err = signedTx.MarshalBinary()
 	if err != nil {
 		panic(err)
@@ -199,7 +209,7 @@ func Deploy(bytecode string) (common.Address, error) {
 	fmt.Printf("Nonce: %v\n", nonce)
 	gp, _ := backend.SuggestGasPrice(context.Background())
 	tx := types.NewContractCreation(nonce, common.Big0, 5_000_000, gp.Mul(gp, common.Big2), common.Hex2Bytes(bytecode))
-	signedTx, _ := types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+	signedTx, _ := txfuzz.SignTx(tx, chainid, sk)
 	if err := backend.SendTransaction(context.Background(), signedTx); err != nil {
 		return common.Address{}, err
 	}
@@ -226,11 +236,11 @@ func Execute(data []byte, gaslimit uint64) error {
 }
 
 func RandomBlobData() ([]byte, error) {
-	val, err := rand.Int(rand.Reader, big.NewInt(maxDataPerBlob))
+	val, err := rand.Int(rand.Reader, big.NewInt(maxBlobData))
 	if err != nil {
 		return nil, err
 	}
-	size := int(val.Int64() * 3)
+	size := int(val.Int64())
 	data := make([]byte, size)
 	n, err := rand.Read(data)
 	if err != nil {

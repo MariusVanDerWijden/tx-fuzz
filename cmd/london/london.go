@@ -1,9 +1,23 @@
 package main
 
 import (
+	"fmt"
+
+	"github.com/MariusVanDerWijden/tx-fuzz/helper"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/core/vm/program"
 )
+
+func main() {
+	fmt.Println("Selfdestructor")
+	if err := helper.Execute(Selfdestructor(), 1_000_000); err != nil {
+		panic(err)
+	}
+	fmt.Println("EfByte")
+	if err := helper.Execute(EfByte(), 1_000_000); err != nil {
+		panic(err)
+	}
+}
 
 func Selfdestructor() []byte {
 	selfdestructTo := []byte{

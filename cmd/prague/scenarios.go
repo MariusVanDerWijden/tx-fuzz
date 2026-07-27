@@ -217,11 +217,14 @@ func ExecWithSK(backend *ethclient.Client, sk *ecdsa.PrivateKey, addr common.Add
 		if err != nil {
 			panic(err)
 		}
-		tx := txfuzz.New4844Tx(nonce, msg.To, msg.Gas, chainid, msg.GasTipCap, msg.GasPrice, msg.Value, msg.Data, msg.BlobGasFeeCap, blob, msg.AccessList)
-		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+		tx, err := txfuzz.New4844Tx(nonce, msg.To, msg.Gas, chainid, msg.GasTipCap, msg.GasFeeCap, msg.Value, msg.Data, msg.BlobGasFeeCap, blob, msg.AccessList, txfuzz.SidecarLatest)
+		if err != nil {
+			panic(err)
+		}
+		signedTx, _ = txfuzz.SignTx(tx, chainid, sk)
 	} else {
 		tx := types.NewTx(&types.DynamicFeeTx{ChainID: chainid, Nonce: nonce, GasTipCap: msg.GasTipCap, GasFeeCap: msg.GasFeeCap, Gas: msg.Gas, To: msg.To, Data: msg.Data, Value: msg.Value, AccessList: msg.AccessList})
-		signedTx, _ = types.SignTx(tx, types.NewCancunSigner(chainid), sk)
+		signedTx, _ = txfuzz.SignTx(tx, chainid, sk)
 	}
 
 	rlpData, err := signedTx.MarshalBinary()

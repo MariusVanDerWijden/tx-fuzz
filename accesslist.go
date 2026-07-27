@@ -17,12 +17,18 @@ func CreateAccessList(client *rpc.Client, tx *types.Transaction, from common.Add
 		From:       from,
 		To:         tx.To(),
 		Gas:        tx.Gas(),
-		GasPrice:   tx.GasPrice(),
-		GasFeeCap:  tx.GasFeeCap(),
-		GasTipCap:  tx.GasTipCap(),
 		Value:      tx.Value(),
 		Data:       tx.Data(),
 		AccessList: nil,
+	}
+	// A call may name either a gas price or the 1559 fee caps, never both. Every
+	// transaction type answers all three getters, so the fields have to be picked
+	// by type instead of copied wholesale.
+	switch tx.Type() {
+	case types.LegacyTxType, types.AccessListTxType:
+		msg.GasPrice = tx.GasPrice()
+	default:
+		msg.GasFeeCap, msg.GasTipCap = tx.GasFeeCap(), tx.GasTipCap()
 	}
 	if client == nil {
 		return &types.AccessList{}, nil

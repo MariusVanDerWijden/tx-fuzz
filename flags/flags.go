@@ -56,6 +56,12 @@ var (
 		Value: 12,
 	}
 
+	SidecarVersionFlag = &cli.IntFlag{
+		Name:  "blob-sidecar-version",
+		Usage: "Blob sidecar version, 1 = EIP-7594 cell proofs (Osaka and later), 0 = single blob proof",
+		Value: 1,
+	}
+
 	SpamFlags = []cli.Flag{
 		SkFlag,
 		SeedFlag,
@@ -66,5 +72,6 @@ var (
 		CountFlag,
 		GasLimitFlag,
 		SlotTimeFlag,
+		SidecarVersionFlag,
 	}
 )
