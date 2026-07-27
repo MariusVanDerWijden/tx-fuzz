@@ -20,13 +20,13 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.23.8
+        go-version: 1.25.7
     - name: Download golangci-lint
       run: wget -O- -nv https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s latest
     - name: Lint
       run: ./bin/golangci-lint run --config .golangci.yml
     - name: Vet
-      run: go vet
+      run: go vet ./...
 
   test:
     runs-on: ubuntu-latest
@@ -36,9 +36,9 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: 1.23.8
+        go-version: 1.25.7
     - name: Test
-      run: go test -v ./...
+      run: go test -race -timeout 20m ./...
 
   build-push:
     name: build-push
